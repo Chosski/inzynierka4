@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Ekran Główny</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="src/dashboard.js" defer></script>
+
+  <script>
+    (function() {
+      const userId = localStorage.getItem('userId');
+      if (!userId) {
+        alert('Musisz być zalogowany, aby uzyskać dostęp do tej strony.');
+        window.location.href = 'index.html';
+      }
+    })();
+  </script>
+
+</head>
+<body>
+  <header>
+    <h1>Witamy w systemie</h1>
+    <div class="header-buttons">
+      <button id="logout-button">Wyloguj się</button>
+    </div>
+  </header>
+  <main>
+    <nav>
+      <ul>
+        <li><a href="#" id="admin-panel">Panel Administratora</a></li>
+        <li><a href="#" id="reception-schedule">Terminarz Rejestracji</a></li>
+        <li><a href="#" id="doctor-schedule">Terminarz Lekarza</a></li>
+        <li><a href="#" id="reception-button">Ewidencja Pacjentów</a></li>
+      </ul>
+    </nav>
+  </main>
+</body>
+</html>

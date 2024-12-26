@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Dodaj Użytkownika</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="src/add_user.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1>Dodaj Użytkownika</h1>
+    <div class="header-buttons">
+      <button id="back-to-dashboard">Powrót do Menu Głównego</button>
+      <button id="logout-button">Wyloguj się</button>
+    </div>
+  </header>
+  <main>
+    <form id="add-user-form">
+      <!-- Pola formularza dodawania użytkownika -->
+      <div class="form-group">
+        <label for="login">Login:</label>
+        <input type="text" id="login" required>
+      </div>
+      <div class="form-group">
+        <label for="firstName">Imię:</label>
+        <input type="text" id="firstName" required>
+      </div>
+      <div class="form-group">
+        <label for="lastName">Nazwisko:</label>
+        <input type="text" id="lastName" required>
+      </div>
+      <div class="form-group">
+        <label for="pesel">PESEL:</label>
+        <input type="text" id="pesel" required>
+      </div>
+      <div class="form-group">
+        <label for="role">Rola:</label>
+        <select id="role" required>
+          <option value="">Wybierz...</option>
+          <option value="admin">Administrator</option>
+          <option value="reception">Rejestracja</option>
+          <option value="doctor">Lekarz</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="password">Hasło:</label>
+        <input type="password" id="password" required>
+      </div>
+      <button type="submit">Dodaj Użytkownika</button>
+    </form>
+  </main>
+</body>
+</html>

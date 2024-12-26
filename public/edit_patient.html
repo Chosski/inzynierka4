@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Edytuj Pacjenta</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="src/edit_patient.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1>Edytuj Pacjenta</h1>
+    <div class="header-buttons">
+      <button id="back-to-reception">Powrót do Panelu Rejestracji</button>
+      <button id="logout-button">Wyloguj się</button>
+    </div>
+  </header>
+  <main>
+    <form id="edit-patient-form">
+      <div class="form-group">
+        <label for="edit-firstName">Imię:</label>
+        <input type="text" id="edit-firstName" required>
+      </div>
+      <div class="form-group">
+        <label for="edit-lastName">Nazwisko:</label>
+        <input type="text" id="edit-lastName" required>
+      </div>
+      <div class="form-group">
+        <label for="edit-pesel">PESEL:</label>
+        <input type="text" id="edit-pesel" required>
+      </div>
+      <div class="form-group">
+        <label for="edit-gender">Płeć:</label>
+        <select id="edit-gender" required>
+          <option value="">Wybierz...</option>
+          <!-- Opcje zostaną załadowane dynamicznie -->
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="edit-nationality">Narodowość:</label>
+        <select id="edit-nationality" required>
+          <option value="">Wybierz...</option>
+          <!-- Opcje zostaną załadowane dynamicznie -->
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="edit-phone">Telefon:</label>
+        <input type="text" id="edit-phone">
+      </div>
+      <div class="form-group">
+        <label for="edit-addressResidence">Adres Zamieszkania:</label>
+        <input type="text" id="edit-addressResidence">
+      </div>
+      <div class="form-group">
+        <label for="edit-addressRegistration">Adres Zameldowania:</label>
+        <input type="text" id="edit-addressRegistration">
+      </div>
+      <button type="submit">Zapisz zmiany</button>
+    </form>
+  </main>
+</body>
+</html>

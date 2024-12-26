@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Panel Administratora</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="src/admin.js" defer></script>
+
+  <script>
+    (function() {
+      const userId = localStorage.getItem('userId');
+      if (!userId) {
+        alert('Musisz być zalogowany, aby uzyskać dostęp do tej strony.');
+        window.location.href = 'index.html';
+      }
+    })();
+  </script>
+
+</head>
+<body>
+  <header>
+    <h1>Panel Administratora</h1>
+    <div class="header-buttons">
+      <button id="back-to-dashboard">Powrót do Menu Głównego</button>
+      <button id="logout-button">Wyloguj się</button>
+    </div>
+  </header>
+  <main>
+    <nav>
+      <ul>
+        <li><a href="#" id="manage-users-tab">Zarządzanie Użytkownikami</a></li>
+        <li><a href="#" id="system-logs-tab">Podgląd Logów Systemowych</a></li>
+        <li><a href="#" id="system-config-tab">Konfiguracja Systemu</a></li>
+        <li><a href="#" id="manage-clinics-tab">Zarządzanie Poradniami</a></li>
+      </ul>
+    </nav>
+
+    <!-- Sekcja Zarządzania Użytkownikami -->
+    <section id="manage-users-section">
+      <h2>Zarządzanie Użytkownikami</h2>
+      <button id="add-user-button">Dodaj Użytkownika</button>
+
+      <h2>Wyszukaj Użytkownika</h2>
+      <form id="search-user-form">
+        <div class="form-group">
+          <label for="search-type">Wyszukaj po:</label>
+          <select id="search-type">
+            <option value="login">Login</option>
+            <option value="lastName">Nazwisko</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="search-query">Wartość:</label>
+          <input type="text" id="search-query" required>
+        </div>
+        <button type="submit">Wyszukaj</button>
+        <button type="button" id="reset-search">Resetuj</button>
+      </form>
+
+      <h2>Lista użytkowników</h2>
+      <table id="user-list">
+        <!-- Lista użytkowników -->
+      </table>
+
+      <!-- Modal Dodawania/Edycji Użytkownika -->
+      <div id="user-modal" class="modal">
+        <div class="modal-content">
+          <span class="close-button" id="close-user-modal">&times;</span>
+          <h2 id="user-modal-title">Dodaj Użytkownika</h2>
+          <form id="user-form">
+            <input type="hidden" id="user-id" value="">
+            <div class="form-group">
+              <label for="user-login">Login:</label>
+              <input type="text" id="user-login" required>
+            </div>
+            <div class="form-group">
+              <label for="user-firstName">Imię:</label>
+              <input type="text" id="user-firstName" required>
+            </div>
+            <div class="form-group">
+              <label for="user-lastName">Nazwisko:</label>
+              <input type="text" id="user-lastName" required>
+            </div>
+            <div class="form-group">
+              <label for="user-pesel">PESEL:</label>
+              <input type="text" id="user-pesel" required pattern="\d{11}">
+            </div>
+            <div class="form-group">
+              <label for="user-role">Rola:</label>
+              <select id="user-role" required>
+                <option value="">Wybierz rolę</option>
+                <option value="admin">Administrator</option>
+                <option value="reception">Rejestracja</option>
+                <option value="doctor">Lekarz</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="user-password">Hasło (opcjonalne przy edycji):</label>
+              <input type="password" id="user-password">
+            </div>
+            <div class="form-group">
+              <label for="user-password-confirm">Potwierdź Hasło:</label>
+              <input type="password" id="user-password-confirm">
+            </div>
+            <div class="form-group">
+              <label>Widoczne Poradnie:</label>
+              <div id="user-clinics-container">
+                <!-- Lista poradni jako checkboxy -->
+              </div>
+            </div>
+            <button type="submit" id="save-user-button">Zapisz</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Modal Resetowania Hasła -->
+      <div id="reset-password-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+          <span class="close-button" id="close-reset-password-modal">&times;</span>
+          <h2>Resetuj Hasło</h2>
+          <form id="reset-password-form">
+            <div class="form-group">
+              <label for="temporary-password">Nowe Tymczasowe Hasło:</label>
+              <input type="password" id="temporary-password" required>
+            </div>
+            <button type="submit">Resetuj Hasło</button>
+          </form>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Sekcja Zarządzania Poradniami -->
+    <section id="manage-clinics-section" style="display:none;">
+      <h2>Zarządzanie Poradniami</h2>
+      <button id="add-clinic-button">Dodaj Poradnię</button>
+      <h2>Lista Poradni</h2>
+      <table id="clinic-list">
+        <!-- Lista poradni -->
+      </table>
+
+      <!-- Modal Dodawania/Edycji Poradni -->
+      <div id="clinic-modal" class="modal">
+        <div class="modal-content">
+          <span class="close-button" id="close-clinic-modal">&times;</span>
+          <h2 id="clinic-modal-title">Dodaj Poradnię</h2>
+          <form id="clinic-form">
+            <input type="hidden" id="clinic-id" value="">
+            <div class="form-group">
+              <label for="clinic-name">Nazwa Poradni:</label>
+              <input type="text" id="clinic-name" required>
+            </div>
+            <button type="submit" id="save-clinic-button">Zapisz</button>
+          </form>
+
+          <!-- Te elementy są widoczne tylko po zapisaniu/edycji poradni (jeśli currentClinicId jest ustawione) -->
+          <h3 id="assigned-doctors-title" style="display:none;">Przypisani Lekarze</h3>
+          <ul id="assigned-doctors-list" style="display:none;">
+            <!-- Lista przypisanych lekarzy do poradni -->
+          </ul>
+
+          <button id="add-doctor-to-clinic-button" style="display:none;">Dodaj Lekarza</button>
+        </div>
+      </div>
+
+      <!-- Modal Dodawania Lekarza do Poradni -->
+      <div id="add-doctor-to-clinic-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+          <span class="close-button" id="close-add-doctor-to-clinic-modal">&times;</span>
+          <h2>Dodaj Lekarza do Poradni</h2>
+          <h3>Wybierz Lekarza z Listy</h3>
+          <ul id="doctor-search-results">
+            <!-- Lista lekarzy -->
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sekcja Podglądu Logów Systemowych -->
+    <section id="system-logs-section" style="display: none;">
+      <h2>Podgląd Logów Systemowych</h2>
+      <pre id="logs-content" class="logs-container">
+        <!-- Logi ładowane dynamicznie -->
+      </pre>
+    </section>
+
+    <!-- Sekcja Konfiguracji Systemu -->
+    <section id="system-config-section" style="display: none;">
+      <h2>Konfiguracja Systemu</h2>
+      <form id="system-config-form">
+        <div class="form-group">
+          <label for="maintenance-mode">Tryb Konserwacji:</label>
+          <select id="maintenance-mode">
+            <option value="off">Wyłączony</option>
+            <option value="on">Włączony</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="session-timeout">Limit Sesji (minuty):</label>
+          <input type="number" id="session-timeout" min="1" value="30">
+        </div>
+        <div class="form-group">
+          <label for="log-level">Poziom Logowania:</label>
+          <select id="log-level">
+            <option value="error">Błędy</option>
+            <option value="warn">Ostrzeżenia</option>
+            <option value="info">Informacje</option>
+            <option value="debug">Debug</option>
+          </select>
+        </div>
+        <button type="submit">Zapisz Konfigurację</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

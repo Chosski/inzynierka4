@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Terminarz Lekarza</title>
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- FullCalendar -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/locales-all.min.js"></script>
+
+  <script>
+    (function() {
+      const userId = localStorage.getItem('userId');
+      if (!userId) {
+        alert('Musisz być zalogowany, aby uzyskać dostęp do tej strony.');
+        window.location.href = 'index.html';
+      }
+    })();
+  </script>
+
+
+  <script src="src/doctor.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1>Terminarz Lekarza</h1>
+    <div class="header-buttons">
+      <button id="back-to-dashboard">Powrót do Menu Głównego</button>
+      <button id="logout-button">Wyloguj się</button>
+    </div>
+  </header>
+  <main>
+    <div class="filters">
+      <label for="clinic-select">Poradnia:</label>
+      <select id="clinic-select">
+        <!-- Lista poradni przypisanych do lekarza zostanie załadowana dynamicznie -->
+      </select>
+    </div>
+    <div id="calendar-container">
+      <div id="calendar"></div>
+    </div>
+  </main>
+</body>
+</html>
