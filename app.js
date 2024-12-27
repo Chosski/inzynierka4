@@ -103,19 +103,6 @@ async function getConnection() {
   return connection;
 }
 
-// ... Dalsza część endpointów / kodu aplikacji ...
-
-
-/**
- * Strona główna (obsłuży plik index.html z katalogu public).
- * Jeżeli w public/index.html jest twoja strona startowa,
- * Express static i tak ją zwróci automatycznie przy GET /,
- * ale można jawnie:
- */
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
 /**
  * Logowanie (POST /api/login)
  */
