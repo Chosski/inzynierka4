@@ -1,12 +1,13 @@
-// auth.js
-
+/************************************
+ * auth.js - zmodyfikowana wersja
+ ************************************/
 document.addEventListener('DOMContentLoaded', () => {
   const loginForm = document.getElementById('login-form');
   const errorMessage = document.getElementById('error-message');
 
   if (!loginForm) {
     console.error('Nie znaleziono formularza #login-form w HTML.');
-    return; // Wyjdź, bo nie ma formularza
+    return; // Brak formularza → nie obsługujemy
   }
 
   loginForm.addEventListener('submit', async (e) => {
@@ -17,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const response = await fetch('/api/login', {
-        method: 'POST', // ważne, aby POST
+        method: 'POST', // musi być POST
         headers: {
           'Content-Type': 'application/json'
         },
@@ -25,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       if (response.ok) {
-        // Logowanie udane
+        // Logowanie udane:
         const data = await response.json();
         localStorage.setItem('userId', data.id);
         localStorage.setItem('userRole', data.role);
@@ -37,12 +38,12 @@ document.addEventListener('DOMContentLoaded', () => {
           window.location.href = 'dashboard.html';
         }
       } else {
-        // Błąd 401 albo inny
-        errorMessage.style.display = 'block'; 
+        // Błąd, np. 401 lub 500:
+        errorMessage.style.display = 'block';
         console.warn('Nieudane logowanie. Status HTTP:', response.status);
       }
     } catch (error) {
-      console.error('Błąd podczas logowania:', error);
+      console.error('Błąd podczas logowania (fetch):', error);
     }
   });
 });
