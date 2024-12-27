@@ -105,9 +105,7 @@ async function getConnection() {
 
 // ... Dalsza część endpointów / kodu aplikacji ...
 
-app.listen(PORT, () => {
-  console.log(`Serwer działa na porcie: ${PORT}`);
-});
+
 /**
  * Strona główna (obsłuży plik index.html z katalogu public).
  * Jeżeli w public/index.html jest twoja strona startowa,
