@@ -114,7 +114,15 @@ app.post('/api/login', async (req, res) => {
   const { login, password } = req.body;
   try {
     const connection = await getConnection();
-    const [rows] = await connection.execute('SELECT * FROM users WHERE login = ?', [login]);
+    try {
+  const [rows] = await connection.execute('SELECT * FROM users WHERE login = ?', [login]);
+  // ...
+} catch (err) {
+  console.error('Błąd podczas logowania / pobierania usera:', err);
+  // lub logger.error(...)
+  return res.status(500).json({ message: 'Błąd serwera', details: String(err) });
+}
+
     connection.end();
 
     if (rows.length === 0) {
