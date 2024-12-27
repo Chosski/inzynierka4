@@ -4,21 +4,30 @@ const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
 const fs = require('fs');
 const winston = require('winston');
-const dotenv = require('dotenv').config();
+require('dotenv').config(); // wczytuje zmienne z .env
+const { URL } = require('url'); // do parsowania DATABASE_URL
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 /** 
- * Konfiguracja bazy danych z .env (zmodyfikuj według potrzeb),
- * np. DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
+ * Odczytujemy z .env zmienną: DATABASE_URL
+ * np. "mysql://root:haslo@mysql-xsuk.railway.internal:3306/myapp"
  */
+const dbUrl = process.env.DATABASE_URL;
+if (!dbUrl) {
+  console.error('Brak zdefiniowanej zmiennej DATABASE_URL w .env!');
+  process.exit(1);
+}
+
+// Parsujemy URL i rozbijamy na części składowe
+const parsedDbUrl = new URL(dbUrl); 
 const dbConfig = {
-  host: process.env.MYSQLHOST,
-  port: process.env.MYSQLPORT || 3306,
-  user: process.env.MYSQLUSER,
-  password: process.env.PASSWORD,
-  database: process.env.MYSQLDATABASE,
+  host: parsedDbUrl.hostname,
+  port: parseInt(parsedDbUrl.port, 10) || 3306,
+  user: parsedDbUrl.username,
+  password: parsedDbUrl.password,
+  database: parsedDbUrl.pathname.replace('/', ''), // usunięcie "/" z początku ścieżki
 };
 
 /**
@@ -42,17 +51,17 @@ const logger = winston.createLogger({
 const configFilePath = path.join(__dirname, 'config.json');
 
 /**
- * Parsowanie JSON w body:
+ * Parsowanie JSON w body
  */
 app.use(express.json());
 
 /**
- * Serwuj pliki statyczne z folderu "public" (koniecznie w tym samym katalogu co app.js)
+ * Serwuj pliki statyczne z folderu "public"
  */
 app.use(express.static(path.join(__dirname, 'public')));
 
 /**
- * Middleware sprawdzający tryb konserwacji na podstawie config.json
+ * Middleware sprawdzający tryb konserwacji
  */
 app.use((req, res, next) => {
   fs.readFile(configFilePath, 'utf8', (err, data) => {
@@ -62,7 +71,6 @@ app.use((req, res, next) => {
     }
     try {
       const config = JSON.parse(data);
-      // jeśli config.maintenanceMode === 'on' i żądanie nie dotyczy /api/login ani index.html, to 503
       if (
         config.maintenanceMode === 'on' &&
         req.path !== '/index.html' &&
@@ -84,7 +92,7 @@ app.use((req, res, next) => {
 async function getConnection() {
   const connection = await mysql.createConnection(dbConfig);
 
-  // Krótki test: odpytywanie bazy SELECT 1
+  // Testowe zapytanie, żeby sprawdzić czy połączenie działa:
   try {
     await connection.query('SELECT 1');
     console.log('Połączenie z bazą danych działa poprawnie!');
@@ -95,8 +103,11 @@ async function getConnection() {
   return connection;
 }
 
+// ... Dalsza część endpointów / kodu aplikacji ...
 
-
+app.listen(PORT, () => {
+  console.log(`Serwer działa na porcie: ${PORT}`);
+});
 /**
  * Strona główna (obsłuży plik index.html z katalogu public).
  * Jeżeli w public/index.html jest twoja strona startowa,
