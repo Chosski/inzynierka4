@@ -1,5 +1,5 @@
 // admin.js
-
+/*
 document.addEventListener('DOMContentLoaded', () => {
   const userRole = localStorage.getItem('userRole');
   if (userRole !== 'admin') {
@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.href = 'dashboard.html';
     return;
   }
-
+*/
   const manageUsersTab = document.getElementById('manage-users-tab');
   const systemLogsTab = document.getElementById('system-logs-tab');
   const systemConfigTab = document.getElementById('system-config-tab');
