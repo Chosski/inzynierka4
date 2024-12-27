@@ -1,18 +1,20 @@
+/************************************
+ * app.js - zmodyfikowana wersja
+ ************************************/
 const express = require('express');
 const path = require('path');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
 const fs = require('fs');
 const winston = require('winston');
-require('dotenv').config(); // wczytuje zmienne z .env
+require('dotenv').config(); // Wczytuje zmienne z .env
 const { URL } = require('url'); // do parsowania DATABASE_URL
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 /** 
- * Odczytujemy z .env zmienną: DATABASE_URL
- * np. "mysql://root:haslo@mysql-xsuk.railway.internal:3306/myapp"
+ * Odczytujemy z .env zmienną: DATABASE_URL (np. "mysql://root:haslo@mysql-xsuk.railway.internal:3306/myapp")
  */
 const dbUrl = process.env.DATABASE_URL;
 if (!dbUrl) {
@@ -20,8 +22,7 @@ if (!dbUrl) {
   process.exit(1);
 }
 
-// Parsujemy URL i rozbijamy na części składowe
-const parsedDbUrl = new URL(dbUrl); 
+const parsedDbUrl = new URL(dbUrl);
 const dbConfig = {
   host: parsedDbUrl.hostname,
   port: parseInt(parsedDbUrl.port, 10) || 3306,
@@ -42,6 +43,8 @@ const logger = winston.createLogger({
   transports: [
     // zapis logów do pliku system.log
     new winston.transports.File({ filename: path.join(__dirname, 'logs', 'system.log') }),
+    // Opcjonalnie można dodać:
+    // new winston.transports.Console()
   ],
 });
 
@@ -76,7 +79,9 @@ app.use((req, res, next) => {
         req.path !== '/index.html' &&
         !req.path.startsWith('/api/login')
       ) {
-        return res.status(503).send('System jest w trybie konserwacji. Proszę spróbować później.');
+        return res
+          .status(503)
+          .send('System jest w trybie konserwacji. Proszę spróbować później.');
       }
       next();
     } catch (parseError) {
@@ -90,16 +95,16 @@ app.use((req, res, next) => {
  * Funkcja pomocnicza do łączenia się z bazą
  */
 async function getConnection() {
-  const connection = await mysql.createConnection(dbConfig);
-
-  // Testowe zapytanie, żeby sprawdzić czy połączenie działa:
+  let connection;
   try {
+    connection = await mysql.createConnection(dbConfig);
+    // Testowe zapytanie, żeby sprawdzić czy połączenie działa:
     await connection.query('SELECT 1');
     console.log('Połączenie z bazą danych działa poprawnie!');
   } catch (err) {
     console.error('Błąd testu połączenia z bazą:', err);
+    throw err;
   }
-
   return connection;
 }
 
@@ -108,20 +113,17 @@ async function getConnection() {
  */
 app.post('/api/login', async (req, res) => {
   const { login, password } = req.body;
+  let connection;
   try {
-    const connection = await getConnection();
-    try {
-  const [rows] = await connection.execute('SELECT * FROM users WHERE login = ?', [login]);
-  // ...
-} catch (err) {
-  console.error('Błąd podczas logowania / pobierania usera:', err);
-  // lub logger.error(...)
-  return res.status(500).json({ message: 'Błąd serwera', details: String(err) });
-}
+    connection = await getConnection();
 
-    connection.end();
+    // Pobieramy usera z bazy
+    const [rows] = await connection.execute(
+      'SELECT * FROM users WHERE login = ?',
+      [login]
+    );
 
-    if (rows.length === 0) {
+    if (!rows || rows.length === 0) {
       logger.warn(`Nieznany użytkownik lub błędne dane logowania: ${login}`);
       return res.status(401).json({ message: 'Nieprawidłowy login lub hasło' });
     }
@@ -129,10 +131,11 @@ app.post('/api/login', async (req, res) => {
     const user = rows[0];
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
-      logger.warn(`Nieudana próba logowania: błędne hasło dla użytkownika ${login}`);
+      logger.warn(`Nieudana próba logowania: błędne hasło dla ${login}`);
       return res.status(401).json({ message: 'Nieprawidłowy login lub hasło' });
     }
 
+    // Sukces:
     logger.info(`Użytkownik ${login} zalogował się pomyślnie.`);
     return res.status(200).json({
       id: user.id,
@@ -142,12 +145,20 @@ app.post('/api/login', async (req, res) => {
     });
 
   } catch (error) {
+    // W razie błędu:
     logger.error('Błąd logowania:', error);
-    return res.status(500).json({ message: 'Błąd serwera' });
+    return res.status(500).json({
+      message: 'Błąd serwera',
+      details: String(error),
+    });
+  } finally {
+    if (connection) {
+      await connection.end();
+    }
   }
 });
 
-/** 
+/**
  * Użytkownicy: GET /api/users
  */
 app.get('/api/users', async (req, res) => {
@@ -166,12 +177,12 @@ app.get('/api/users', async (req, res) => {
 
     const connection = await getConnection();
     const [users] = await connection.execute(query, params);
-    connection.end();
+    await connection.end();
 
-    res.status(200).json(users);
+    return res.status(200).json(users);
   } catch (error) {
     logger.error('Błąd pobierania użytkowników:', error);
-    res.status(500).json({ message: 'Błąd serwera' });
+    return res.status(500).json({ message: 'Błąd serwera' });
   }
 });
 
@@ -180,18 +191,22 @@ app.get('/api/users', async (req, res) => {
  */
 app.get('/api/users/:id', async (req, res) => {
   const { id } = req.params;
+  let connection;
   try {
-    const connection = await getConnection();
+    connection = await getConnection();
     const [users] = await connection.execute('SELECT * FROM users WHERE id = ?', [id]);
-    connection.end();
 
-    if (users.length === 0) {
+    if (!users || users.length === 0) {
+      await connection.end();
       return res.status(404).json({ message: 'Nie znaleziono użytkownika' });
     }
+    await connection.end();
     return res.status(200).json(users[0]);
   } catch (error) {
     logger.error('Błąd pobierania danych użytkownika:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -200,15 +215,16 @@ app.get('/api/users/:id', async (req, res) => {
  */
 app.post('/api/users', async (req, res) => {
   const { login, firstName, lastName, pesel, role, password } = req.body;
+  let connection;
   try {
-    const connection = await getConnection();
+    connection = await getConnection();
     const [existingUsers] = await connection.execute(
       'SELECT * FROM users WHERE login = ? OR pesel = ?',
       [login, pesel]
     );
 
     if (existingUsers.length > 0) {
-      connection.end();
+      await connection.end();
       logger.warn(`Użytkownik (login=${login} / PESEL=${pesel}) już istnieje.`);
       return res.status(400).json({ message: 'Użytkownik już istnieje' });
     }
@@ -220,12 +236,17 @@ app.post('/api/users', async (req, res) => {
       [login, firstName, lastName, pesel, role, hashedPassword, false]
     );
 
-    connection.end();
+    await connection.end();
     logger.info(`Dodano nowego użytkownika: ${login}`);
-    return res.status(201).json({ message: 'Dodano użytkownika', id: result.insertId });
+    return res.status(201).json({
+      message: 'Dodano użytkownika',
+      id: result.insertId,
+    });
   } catch (error) {
     logger.error('Błąd dodawania użytkownika:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -234,20 +255,24 @@ app.post('/api/users', async (req, res) => {
  */
 app.delete('/api/users/:id', async (req, res) => {
   const { id } = req.params;
+  let connection;
   try {
-    const connection = await getConnection();
+    connection = await getConnection();
     const [result] = await connection.execute('DELETE FROM users WHERE id = ?', [id]);
-    connection.end();
 
     if (result.affectedRows === 0) {
+      await connection.end();
       return res.status(404).json({ message: 'Nie znaleziono użytkownika' });
     }
 
+    await connection.end();
     logger.info(`Usunięto użytkownika o ID ${id}.`);
     return res.status(200).json({ message: 'Użytkownik został usunięty' });
   } catch (error) {
     logger.error('Błąd usuwania użytkownika:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -257,15 +282,16 @@ app.delete('/api/users/:id', async (req, res) => {
 app.put('/api/users/:id', async (req, res) => {
   const { id } = req.params;
   const { firstName, lastName, pesel, role, password } = req.body;
+  let connection;
   try {
-    const connection = await getConnection();
+    connection = await getConnection();
     const [result] = await connection.execute(
       'UPDATE users SET firstName = ?, lastName = ?, pesel = ?, role = ? WHERE id = ?',
       [firstName, lastName, pesel, role, id]
     );
 
     if (result.affectedRows === 0) {
-      connection.end();
+      await connection.end();
       return res.status(404).json({ message: 'Nie znaleziono użytkownika' });
     }
 
@@ -278,12 +304,16 @@ app.put('/api/users/:id', async (req, res) => {
       );
     }
 
-    connection.end();
+    await connection.end();
     logger.info(`Zaktualizowano dane użytkownika o ID ${id}.`);
-    return res.status(200).json({ message: 'Dane użytkownika zostały zaktualizowane' });
+    return res.status(200).json({
+      message: 'Dane użytkownika zostały zaktualizowane',
+    });
   } catch (error) {
     logger.error('Błąd edycji użytkownika:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -298,25 +328,28 @@ app.put('/api/users/:id/reset-password', async (req, res) => {
     return res.status(400).json({ message: 'Hasło nie może być puste' });
   }
 
+  let connection;
   try {
-    const connection = await getConnection();
+    connection = await getConnection();
     const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
     const [result] = await connection.execute(
       'UPDATE users SET password = ?, temporaryPassword = ? WHERE id = ?',
       [hashedPassword, true, id]
     );
 
-    connection.end();
-
     if (result.affectedRows === 0) {
+      await connection.end();
       return res.status(404).json({ message: 'Nie znaleziono użytkownika' });
     }
 
+    await connection.end();
     logger.info(`Zresetowano hasło użytkownika o ID ${id}.`);
     return res.status(200).json({ message: 'Hasło zostało zresetowane' });
   } catch (error) {
     logger.error('Błąd resetowania hasła:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -325,9 +358,9 @@ app.put('/api/users/:id/reset-password', async (req, res) => {
  */
 app.get('/api/users/:id/visible-clinics', async (req, res) => {
   const { id } = req.params;
+  let connection;
   try {
-    const connection = await getConnection();
-    // Zmiana klucza z doctor_clinics na user_visible_clinics (zależy od Twojej struktury bazy)
+    connection = await getConnection();
     const [clinics] = await connection.execute(`
       SELECT c.id, c.name
       FROM user_visible_clinics uvc
@@ -335,11 +368,13 @@ app.get('/api/users/:id/visible-clinics', async (req, res) => {
       WHERE uvc.user_id = ?
     `, [id]);
 
-    connection.end();
+    await connection.end();
     return res.status(200).json(clinics);
   } catch (error) {
     logger.error('Błąd pobierania widocznych poradni:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -353,22 +388,27 @@ app.post('/api/users/:id/visible-clinics', async (req, res) => {
     return res.status(400).json({ message: 'Wymagana lista ID poradni' });
   }
 
+  let connection;
   try {
-    const connection = await getConnection();
+    connection = await getConnection();
     // Najpierw czyścimy stare wpisy
     await connection.execute('DELETE FROM user_visible_clinics WHERE user_id = ?', [id]);
 
-    // Wstawiamy nowe (z pętli)
     for (const cId of clinics) {
-      await connection.execute('INSERT INTO user_visible_clinics (user_id, clinic_id) VALUES (?, ?)', [id, cId]);
+      await connection.execute(
+        'INSERT INTO user_visible_clinics (user_id, clinic_id) VALUES (?, ?)',
+        [id, cId]
+      );
     }
 
-    connection.end();
+    await connection.end();
     logger.info(`Zaktualizowano widoczne poradnie dla użytkownika o ID ${id}.`);
     return res.status(200).json({ message: 'Zaktualizowano widoczne poradnie' });
   } catch (error) {
     logger.error('Błąd aktualizacji widocznych poradni:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -377,8 +417,10 @@ app.post('/api/users/:id/visible-clinics', async (req, res) => {
  */
 app.get('/api/doctors', async (req, res) => {
   const { clinicId, lastName } = req.query;
+  let connection;
   try {
-    let query = 'SELECT u.id, u.firstName, u.lastName FROM users u WHERE u.role = "doctor"';
+    let query =
+      'SELECT u.id, u.firstName, u.lastName FROM users u WHERE u.role = "doctor"';
     const params = [];
 
     if (clinicId) {
@@ -399,14 +441,16 @@ app.get('/api/doctors', async (req, res) => {
       params.push(`%${lastName}%`);
     }
 
-    const connection = await getConnection();
+    connection = await getConnection();
     const [doctors] = await connection.execute(query, params);
-    connection.end();
+    await connection.end();
 
     return res.status(200).json(doctors);
   } catch (error) {
     logger.error('Błąd pobierania lekarzy:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -415,21 +459,25 @@ app.get('/api/doctors', async (req, res) => {
  */
 app.get('/api/doctors/:id', async (req, res) => {
   const { id } = req.params;
+  let connection;
   try {
-    const connection = await getConnection();
+    connection = await getConnection();
     const [docs] = await connection.execute(
       'SELECT id, firstName, lastName FROM users WHERE id = ? AND role="doctor"',
       [id]
     );
-    connection.end();
 
-    if (docs.length === 0) {
+    if (!docs || docs.length === 0) {
+      await connection.end();
       return res.status(404).json({ message: 'Nie znaleziono lekarza' });
     }
+    await connection.end();
     return res.status(200).json(docs[0]);
   } catch (error) {
     logger.error('Błąd pobierania lekarza:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -439,7 +487,9 @@ app.get('/api/doctors/:id', async (req, res) => {
 app.post('/api/schedules', async (req, res) => {
   const { doctorId, patientId, start, end, clinicId } = req.body;
   if (!doctorId || !patientId || !start || !clinicId) {
-    return res.status(400).json({ message: 'Wymagane: doctorId, patientId, start, clinicId' });
+    return res.status(400).json({
+      message: 'Wymagane: doctorId, patientId, start, clinicId',
+    });
   }
 
   let endTime = end;
@@ -449,18 +499,24 @@ app.post('/api/schedules', async (req, res) => {
     endTime = endDate.toISOString().slice(0, 19).replace('T', ' ');
   }
 
+  let connection;
   try {
-    const connection = await getConnection();
+    connection = await getConnection();
     await connection.execute(
       'INSERT INTO schedules (doctor_id, patient_id, clinic_id, start_time, end_time) VALUES (?, ?, ?, ?, ?)',
       [doctorId, patientId, clinicId, start, endTime]
     );
-    connection.end();
-    logger.info(`Dodano nowy termin: lekarz=${doctorId}, pacjent=${patientId}, poradnia=${clinicId}.`);
+
+    await connection.end();
+    logger.info(
+      `Dodano nowy termin: lekarz=${doctorId}, pacjent=${patientId}, poradnia=${clinicId}.`
+    );
     return res.status(201).json({ message: 'Dodano termin' });
   } catch (error) {
     logger.error('Błąd dodawania terminu:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -473,8 +529,9 @@ app.get('/api/schedules', async (req, res) => {
     return res.status(400).json({ message: 'doctorId jest wymagany' });
   }
 
+  let connection;
   try {
-    const connection = await getConnection();
+    connection = await getConnection();
     let query = `
       SELECT s.*,
              p.firstName AS patientFirstName,
@@ -500,8 +557,10 @@ app.get('/api/schedules', async (req, res) => {
       const clinicIds = clinicRows.map(row => row.clinic_id);
 
       if (clinicIds.length === 0) {
-        connection.end();
-        return res.status(404).json({ message: 'Lekarz nie jest przypisany do żadnej poradni.' });
+        await connection.end();
+        return res
+          .status(404)
+          .json({ message: 'Lekarz nie jest przypisany do żadnej poradni.' });
       }
 
       // placeholders do IN
@@ -511,9 +570,9 @@ app.get('/api/schedules', async (req, res) => {
     }
 
     const [rows] = await connection.execute(query, params);
-    connection.end();
+    await connection.end();
 
-    const events = rows.map((sch) => ({
+    const events = rows.map(sch => ({
       id: sch.id,
       title: `${sch.patientFirstName} ${sch.patientLastName} (PESEL: ${sch.patientPesel})`,
       start: sch.start_time,
@@ -533,6 +592,8 @@ app.get('/api/schedules', async (req, res) => {
   } catch (error) {
     logger.error('Błąd pobierania terminarzy:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -541,20 +602,27 @@ app.get('/api/schedules', async (req, res) => {
  */
 app.delete('/api/schedules/:id', async (req, res) => {
   const { id } = req.params;
+  let connection;
   try {
-    const connection = await getConnection();
-    const [result] = await connection.execute('DELETE FROM schedules WHERE id = ?', [id]);
-    connection.end();
+    connection = await getConnection();
+    const [result] = await connection.execute(
+      'DELETE FROM schedules WHERE id = ?',
+      [id]
+    );
 
     if (result.affectedRows === 0) {
+      await connection.end();
       return res.status(404).json({ message: 'Nie znaleziono terminu' });
     }
 
+    await connection.end();
     logger.info(`Usunięto termin o ID ${id}.`);
     return res.status(200).json({ message: 'Termin został usunięty' });
   } catch (error) {
     logger.error('Błąd usuwania terminu:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -582,21 +650,29 @@ app.post('/api/patients', async (req, res) => {
     !addressResidence ||
     !addressRegistration
   ) {
-    return res.status(400).json({ message: 'Wymagane dane pacjenta i obu adresów' });
+    return res
+      .status(400)
+      .json({ message: 'Wymagane dane pacjenta i obu adresów' });
   }
 
+  let connection;
   try {
-    const connection = await getConnection();
+    connection = await getConnection();
 
     // sprawdzenie, czy pacjent o tym PESEL już istnieje
-    const [existingPatients] = await connection.execute('SELECT id FROM patients WHERE pesel = ?', [pesel]);
+    const [existingPatients] = await connection.execute(
+      'SELECT id FROM patients WHERE pesel = ?',
+      [pesel]
+    );
     if (existingPatients.length > 0) {
-      connection.end();
-      return res.status(400).json({ message: 'Pacjent z tym numerem PESEL już istnieje' });
+      await connection.end();
+      return res
+        .status(400)
+        .json({ message: 'Pacjent z tym numerem PESEL już istnieje' });
     }
 
     // Funkcja pomocnicza do wstawiania adresu
-    const insertAddress = async (addr) => {
+    async function insertAddress(addr) {
       const [result] = await connection.execute(
         `INSERT INTO addresses (country, city, postal_code, street, house_number, apartment_number)
          VALUES (?, ?, ?, ?, ?, ?)`,
@@ -610,7 +686,7 @@ app.post('/api/patients', async (req, res) => {
         ]
       );
       return result.insertId;
-    };
+    }
 
     // wstawiamy oba adresy
     const addressResidence_id = await insertAddress(addressResidence);
@@ -640,12 +716,14 @@ app.post('/api/patients', async (req, res) => {
       ]
     );
 
-    connection.end();
+    await connection.end();
     logger.info(`Dodano pacjenta: ${firstName} ${lastName}, PESEL=${pesel}.`);
     return res.status(201).json({ message: 'Dodano pacjenta', id: resultPatient.insertId });
   } catch (error) {
     logger.error('Błąd dodawania pacjenta:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -670,14 +748,17 @@ app.get('/api/patients', async (req, res) => {
     params.push(likeSearch, likeSearch, likeSearch);
   }
 
+  let connection;
   try {
-    const connection = await getConnection();
+    connection = await getConnection();
     const [patients] = await connection.execute(query, params);
-    connection.end();
+    await connection.end();
     return res.status(200).json(patients);
   } catch (error) {
     logger.error('Błąd pobierania pacjentów:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -685,14 +766,17 @@ app.get('/api/patients', async (req, res) => {
  * Pobieranie listy płci
  */
 app.get('/api/genders', async (req, res) => {
+  let connection;
   try {
-    const connection = await getConnection();
+    connection = await getConnection();
     const [genders] = await connection.execute('SELECT id, name FROM genders');
-    connection.end();
+    await connection.end();
     return res.status(200).json(genders);
   } catch (error) {
     logger.error('Błąd pobierania płci:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -700,14 +784,17 @@ app.get('/api/genders', async (req, res) => {
  * Pobieranie krajów
  */
 app.get('/api/countries', async (req, res) => {
+  let connection;
   try {
-    const connection = await getConnection();
+    connection = await getConnection();
     const [countries] = await connection.execute('SELECT id, name FROM countries');
-    connection.end();
+    await connection.end();
     return res.status(200).json(countries);
   } catch (error) {
     logger.error('Błąd pobierania krajów:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -722,23 +809,27 @@ app.put('/api/schedules/:id', async (req, res) => {
     return res.status(400).json({ message: 'Wymagane pola: start i end' });
   }
 
+  let connection;
   try {
-    const connection = await getConnection();
+    connection = await getConnection();
     const [result] = await connection.execute(
       'UPDATE schedules SET start_time = ?, end_time = ? WHERE id = ?',
       [start, end, id]
     );
-    connection.end();
 
     if (result.affectedRows === 0) {
+      await connection.end();
       return res.status(404).json({ message: 'Nie znaleziono terminu' });
     }
 
+    await connection.end();
     logger.info(`Zaktualizowano termin ID=${id}.`);
     return res.status(200).json({ message: 'Termin zaktualizowany' });
   } catch (error) {
     logger.error('Błąd edycji terminu:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -746,14 +837,17 @@ app.put('/api/schedules/:id', async (req, res) => {
  * Poradnie: GET /api/clinics
  */
 app.get('/api/clinics', async (req, res) => {
+  let connection;
   try {
-    const connection = await getConnection();
+    connection = await getConnection();
     const [clinics] = await connection.execute('SELECT id, name FROM clinics');
-    connection.end();
+    await connection.end();
     return res.status(200).json(clinics);
   } catch (error) {
     logger.error('Błąd pobierania poradni:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -766,15 +860,22 @@ app.post('/api/clinics', async (req, res) => {
     return res.status(400).json({ message: 'Nazwa poradni jest wymagana' });
   }
 
+  let connection;
   try {
-    const connection = await getConnection();
-    const [result] = await connection.execute('INSERT INTO clinics (name) VALUES (?)', [name]);
-    connection.end();
+    connection = await getConnection();
+    const [result] = await connection.execute(
+      'INSERT INTO clinics (name) VALUES (?)',
+      [name]
+    );
+
+    await connection.end();
     logger.info(`Dodano nową poradnię: ${name}.`);
     return res.status(201).json({ message: 'Dodano poradnię', id: result.insertId });
   } catch (error) {
     logger.error('Błąd dodawania poradni:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -788,20 +889,27 @@ app.put('/api/clinics/:id', async (req, res) => {
     return res.status(400).json({ message: 'Nazwa poradni jest wymagana' });
   }
 
+  let connection;
   try {
-    const connection = await getConnection();
-    const [result] = await connection.execute('UPDATE clinics SET name = ? WHERE id = ?', [name, id]);
-    connection.end();
+    connection = await getConnection();
+    const [result] = await connection.execute(
+      'UPDATE clinics SET name = ? WHERE id = ?',
+      [name, id]
+    );
 
     if (result.affectedRows === 0) {
+      await connection.end();
       return res.status(404).json({ message: 'Nie znaleziono poradni' });
     }
 
+    await connection.end();
     logger.info(`Zaktualizowano poradnię o ID=${id}.`);
     return res.status(200).json({ message: 'Zaktualizowano poradnię' });
   } catch (error) {
     logger.error('Błąd edycji poradni:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -810,20 +918,27 @@ app.put('/api/clinics/:id', async (req, res) => {
  */
 app.delete('/api/clinics/:id', async (req, res) => {
   const { id } = req.params;
+  let connection;
   try {
-    const connection = await getConnection();
-    const [result] = await connection.execute('DELETE FROM clinics WHERE id = ?', [id]);
-    connection.end();
+    connection = await getConnection();
+    const [result] = await connection.execute(
+      'DELETE FROM clinics WHERE id = ?',
+      [id]
+    );
 
     if (result.affectedRows === 0) {
+      await connection.end();
       return res.status(404).json({ message: 'Nie znaleziono poradni' });
     }
 
+    await connection.end();
     logger.info(`Usunięto poradnię o ID=${id}.`);
     return res.status(200).json({ message: 'Poradnia została usunięta' });
   } catch (error) {
     logger.error('Błąd usuwania poradni:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -832,8 +947,9 @@ app.delete('/api/clinics/:id', async (req, res) => {
  */
 app.get('/api/clinics/:id/doctors', async (req, res) => {
   const { id } = req.params;
+  let connection;
   try {
-    const connection = await getConnection();
+    connection = await getConnection();
     const [doctors] = await connection.execute(
       `SELECT u.id, u.firstName, u.lastName
        FROM doctor_clinics dc
@@ -841,11 +957,13 @@ app.get('/api/clinics/:id/doctors', async (req, res) => {
        WHERE dc.clinic_id = ? AND u.role = 'doctor'`,
       [id]
     );
-    connection.end();
+    await connection.end();
     return res.status(200).json(doctors);
   } catch (error) {
     logger.error('Błąd pobierania lekarzy poradni:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -859,20 +977,26 @@ app.post('/api/clinics/:id/doctors', async (req, res) => {
     return res.status(400).json({ message: 'Wymagana lista ID lekarzy' });
   }
 
+  let connection;
   try {
-    const connection = await getConnection();
+    connection = await getConnection();
     await connection.execute('DELETE FROM doctor_clinics WHERE clinic_id = ?', [id]);
 
     for (const docId of doctors) {
-      await connection.execute('INSERT INTO doctor_clinics (doctor_id, clinic_id) VALUES (?, ?)', [docId, id]);
+      await connection.execute(
+        'INSERT INTO doctor_clinics (doctor_id, clinic_id) VALUES (?, ?)',
+        [docId, id]
+      );
     }
 
-    connection.end();
+    await connection.end();
     logger.info(`Zaktualizowano lekarzy dla poradni o ID=${id}.`);
     return res.status(200).json({ message: 'Zaktualizowano lekarzy dla poradni' });
   } catch (error) {
     logger.error('Błąd aktualizacji lekarzy poradni:', error);
     return res.status(500).json({ message: 'Błąd serwera' });
+  } finally {
+    if (connection) connection.end();
   }
 });
 
@@ -953,9 +1077,8 @@ app.get('/api/system-logs', async (req, res) => {
 });
 
 /** 
- * Przykładowe trasy do plików HTML z folderu "public" (opcjonalnie).
+ * Przykładowe trasy do plików HTML z folderu "public".
  * Jeśli pliki html są w "public/", express.static je i tak obsłuży.
- * Ale jeśli potrzebujesz konkretnych ścieżek, użyj:
  */
 app.get('/edit_patient.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'edit_patient.html'));
