@@ -82,8 +82,20 @@ app.use((req, res, next) => {
  * Funkcja pomocnicza do łączenia się z bazą
  */
 async function getConnection() {
-  return await mysql.createConnection(dbConfig);
+  const connection = await mysql.createConnection(dbConfig);
+
+  // Krótki test: odpytywanie bazy SELECT 1
+  try {
+    await connection.query('SELECT 1');
+    console.log('Połączenie z bazą danych działa poprawnie!');
+  } catch (err) {
+    console.error('Błąd testu połączenia z bazą:', err);
+  }
+
+  return connection;
 }
+
+
 
 /**
  * Strona główna (obsłuży plik index.html z katalogu public).
