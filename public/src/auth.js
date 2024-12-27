@@ -4,6 +4,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const loginForm = document.getElementById('login-form');
   const errorMessage = document.getElementById('error-message');
 
+  if (!loginForm) {
+    console.error('Nie znaleziono formularza #login-form w HTML.');
+    return; // Wyjdź, bo nie ma formularza
+  }
+
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -12,12 +17,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', // ważne, aby POST
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({ login, password }),
       });
 
       if (response.ok) {
+        // Logowanie udane
         const data = await response.json();
         localStorage.setItem('userId', data.id);
         localStorage.setItem('userRole', data.role);
@@ -29,11 +37,12 @@ document.addEventListener('DOMContentLoaded', () => {
           window.location.href = 'dashboard.html';
         }
       } else {
-        errorMessage.style.display = 'block';
+        // Błąd 401 albo inny
+        errorMessage.style.display = 'block'; 
+        console.warn('Nieudane logowanie. Status HTTP:', response.status);
       }
     } catch (error) {
       console.error('Błąd podczas logowania:', error);
     }
   });
 });
-
