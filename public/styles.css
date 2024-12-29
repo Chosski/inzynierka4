@@ -27,7 +27,8 @@
 /* Stylizacja body */
 body {
   font-family: 'Arial', sans-serif;
-  background-color: var(--secondary-color);
+  /* Subtelny gradient od jasnego szarego do bardzo jasnej zieleni */
+  background: linear-gradient(to bottom, var(--secondary-color), #E8F5E9);
   color: var(--text-color);
   min-height: 100vh;
   display: flex;
@@ -36,20 +37,34 @@ body {
 
 /* Nagłówek */
 header {
-  background-color: var(--header-bg);
+  /* Delikatny gradient w nagłówku */
+  background: linear-gradient(to right, var(--header-bg), var(--primary-color));
   color: var(--accent-color);
   padding: 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   animation: fadeIn var(--transition-normal) ease;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
 
-header h1 {
-  font-size: 24px;
-  font-weight: bold;
-  letter-spacing: 1px;
+/* Wycentrowanie wszystkich h1 w nagłówku (i w całym dokumencie) */
+h1 {
+  text-align: center;
+  margin-bottom: 20px;
 }
+
+/* Możesz dodatkowo wymusić szerokość i centrowanie w nagłówku:
+   Jeżeli chcesz, aby h1 faktycznie był pośrodku w headerze, 
+   wystarczy dopisać margin: 0 auto; i width: 100%. 
+   W razie potrzeby odkomentuj poniższe:
+*/
+/*
+header h1 {
+  margin: 0 auto;
+  width: 100%;
+}
+*/
 
 .header-buttons button {
   background-color: var(--button-bg);
@@ -72,6 +87,7 @@ nav {
   background-color: var(--primary-color);
   padding: 10px 20px;
   animation: fadeInDown var(--transition-normal) ease;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
 nav ul {
@@ -89,10 +105,13 @@ nav ul li a {
   text-decoration: none;
   font-size: 16px;
   font-weight: 500;
-  transition: color var(--transition-fast) ease;
+  transition: background-color var(--transition-fast) ease;
+  padding: 8px 12px;
+  border-radius: 4px;
 }
 
 nav ul li a:hover {
+  background-color: var(--primary-dark);
   color: var(--accent-color);
 }
 
@@ -114,8 +133,6 @@ form {
   animation: fadeInUp var(--transition-normal) ease;
 }
 
-
-
 form label {
   display: block;
   margin-bottom: 5px;
@@ -131,11 +148,18 @@ form select {
   border: 1px solid #cccccc;
   border-radius: 4px;
   transition: border-color var(--transition-fast) ease;
+  margin-bottom: 15px;
 }
 
 form input:hover,
 form select:hover {
   border-color: var(--primary-color);
+}
+
+form input:focus,
+form select:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
 }
 
 form button {
@@ -149,7 +173,6 @@ form button {
   cursor: pointer;
   transition: background-color var(--transition-fast) ease;
   font-weight: bold;
-  margin-top: 10px;
 }
 
 form button:hover {
@@ -211,7 +234,7 @@ button:hover {
 }
 
 .modal.show {
-  display: none;
+  display: flex; /* Zmiana na flex, żeby widać było popup i centered */
   opacity: 1;
 }
 
@@ -260,6 +283,7 @@ button:hover {
 .sidebar h2 {
   margin-bottom: 20px;
   font-size: 18px;
+  text-align: center; /* Wycentrowanie nagłówka sidebaru */
 }
 
 .sidebar .form-group {
@@ -366,10 +390,16 @@ table tr:hover {
   .sidebar {
     margin-right: 0;
     margin-bottom: 20px;
+    margin-left: 0;
+    width: auto;
   }
 
   form {
     max-width: 100%;
     margin: 20px;
+  }
+
+  #calendar-container {
+    margin-top: 20px;
   }
 }
