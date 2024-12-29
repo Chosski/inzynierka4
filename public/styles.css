@@ -282,7 +282,7 @@ button:hover {
   border-radius: 8px;
   width: 250px;
   animation: fadeInLeft var(--transition-normal) ease;
-  margin-left: 750px;
+  margin-left: 820px;
 }
 .sidebar h2 {
   margin-bottom: 20px;
