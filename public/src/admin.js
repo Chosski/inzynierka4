@@ -1,5 +1,3 @@
-// admin.js
-/*
 document.addEventListener('DOMContentLoaded', () => {
   const userRole = localStorage.getItem('userRole');
   if (userRole !== 'admin') {
@@ -7,7 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.href = 'dashboard.html';
     return;
   }
-*/
+
   const manageUsersTab = document.getElementById('manage-users-tab');
   const systemLogsTab = document.getElementById('system-logs-tab');
   const systemConfigTab = document.getElementById('system-config-tab');
@@ -35,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadSystemConfig();
   });
 
-  manageClinicsTab.addEventListener('click', (e)=>{
+  manageClinicsTab.addEventListener('click', (e) => {
     e.preventDefault();
     showSection('manage-clinics');
     loadClinics();
@@ -113,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
       userModalTitle.textContent = 'Dodaj Użytkownika';
       userForm.reset();
       userIdField.value = '';
-      loadAllClinicsForUserForm([]); 
+      loadAllClinicsForUserForm([]);
     }
 
     userModal.style.display = 'block';
@@ -130,7 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   window.addEventListener('click', (event) => {
-    if (event.target == userModal) {
+    if (event.target === userModal) {
       closeUserModal();
     }
   });
@@ -262,11 +260,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (userId) {
+      // Edycja istniejącego
       if ((password || passwordConfirm) && (password !== passwordConfirm)) {
         alert('Hasła nie są zgodne.');
         return;
       }
     } else {
+      // Dodawanie nowego
       if (!password || !passwordConfirm) {
         alert('Hasło jest wymagane przy dodawaniu nowego użytkownika.');
         return;
@@ -285,14 +285,17 @@ document.addEventListener('DOMContentLoaded', () => {
       role
     };
 
-    if ((!userId && password && passwordConfirm && password === passwordConfirm) || 
-        (userId && password && passwordConfirm && password === passwordConfirm)) {
+    if (
+      (!userId && password && passwordConfirm && password === passwordConfirm) ||
+      (userId && password && passwordConfirm && password === passwordConfirm)
+    ) {
       userData.password = password;
     }
 
     try {
       let response;
       if (userId) {
+        // Aktualizacja
         const putBody = {
           firstName,
           lastName,
@@ -309,6 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
           body: JSON.stringify(putBody),
         });
       } else {
+        // Dodawanie nowego
         response = await fetch('/api/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -419,7 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.onclick = function(event) {
-      if (event.target == resetPasswordModal) {
+      if (event.target === resetPasswordModal) {
         resetPasswordModal.style.display = 'none';
         temporaryPasswordInput.value = '';
       }
@@ -477,8 +481,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const logLevel = document.getElementById('log-level').value;
 
     try {
+      // Uwaga: w Twoim kodzie jest fetch('/api/system-config', { method: 'POST', ... })
+      // ale w pliku app.js masz app.put('/api/system-config', ...)
+      // To może powodować błąd – lepiej użyć method: 'PUT':
       const response = await fetch('/api/system-config', {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ maintenanceMode, sessionTimeout, logLevel }),
       });
@@ -540,7 +547,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       assignedDoctorsTitle.style.display = 'block';
       assignedDoctorsList.style.display = 'block';
-      addDoctorToClinicButton.style.display = 'inline-block'; 
+      addDoctorToClinicButton.style.display = 'inline-block';
 
       loadAssignedDoctors(currentClinicId);
     } else {
@@ -604,7 +611,7 @@ document.addEventListener('DOMContentLoaded', () => {
   closeClinicModalButton.addEventListener('click', closeClinicModal);
 
   window.addEventListener('click', (event) => {
-    if (event.target == clinicModal) {
+    if (event.target === clinicModal) {
       closeClinicModal();
     }
   });
@@ -617,12 +624,14 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       let response;
       if (clinicId) {
+        // Edycja poradni
         response = await fetch(`/api/clinics/${clinicId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name }),
         });
       } else {
+        // Dodawanie nowej
         response = await fetch('/api/clinics', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -635,7 +644,6 @@ document.addEventListener('DOMContentLoaded', () => {
           const data = await response.json();
           currentClinicId = data.id;
 
-          // Teraz po zapisaniu nowej poradni możemy pokazać listę lekarzy i przycisk
           assignedDoctorsTitle.style.display = 'block';
           assignedDoctorsList.style.display = 'block';
           addDoctorToClinicButton.style.display = 'inline-block';
@@ -744,7 +752,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
-      const response = await fetch('/api/doctors'); 
+      const response = await fetch('/api/doctors');
       if (response.ok) {
         const doctors = await response.json();
         renderDoctorSearchResults(doctors);
@@ -765,7 +773,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   window.addEventListener('click', (event) => {
-    if (event.target == addDoctorToClinicModal) {
+    if (event.target === addDoctorToClinicModal) {
       addDoctorToClinicModal.style.display = 'none';
       doctorSearchResults.innerHTML = '';
     }
@@ -806,7 +814,6 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // Pobierz aktualnie przypisanych lekarzy
     let assignedDoctors = await loadAssignedDoctorsForUpdate(currentClinicId);
     const assignedDoctorIds = assignedDoctors.map(d => d.id);
 
@@ -815,7 +822,6 @@ document.addEventListener('DOMContentLoaded', () => {
       assignedDoctorIds.push(doctorId);
     }
 
-    // Wyślij całą listę do serwera
     try {
       const response = await fetch(`/api/clinics/${currentClinicId}/doctors`, {
         method: 'POST',
@@ -827,7 +833,6 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Lekarz został dodany do poradni.');
         addDoctorToClinicModal.style.display = 'none';
         doctorSearchResults.innerHTML = '';
-        // Odśwież listę przypisanych lekarzy
         loadAssignedDoctors(currentClinicId);
       } else {
         const errorData = await response.json();
