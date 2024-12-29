@@ -50,7 +50,8 @@ const logger = winston.createLogger({
   transports: [
     // zapis logów do pliku system.log
     new winston.transports.File({ filename: path.join(__dirname, 'logs', 'system.log') }),
-    // new winston.transports.Console() // można odkomentować do debugowania
+    // Odkomentuj w razie potrzeby debugowania w konsoli:
+    // new winston.transports.Console()
   ],
 });
 
