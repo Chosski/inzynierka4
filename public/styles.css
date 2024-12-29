@@ -54,6 +54,10 @@ h1 {
   margin-bottom: 20px;
 }
 
+h2 {
+  text-align: center;
+  margin-bottom: 20px;
+}
 /* Możesz dodatkowo wymusić szerokość i centrowanie w nagłówku:
    Jeżeli chcesz, aby h1 faktycznie był pośrodku w headerze, 
    wystarczy dopisać margin: 0 auto; i width: 100%. 
