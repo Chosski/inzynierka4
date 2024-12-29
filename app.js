@@ -357,6 +357,118 @@ app.put('/api/users/:id/reset-password', async (req, res) => {
   }
 });
 
+// Poradnie
+app.get('/api/clinics', async (req, res) => {
+  try {
+    const connection = await getConnection();
+    const [clinics] = await connection.execute('SELECT id, name FROM clinics');
+    connection.end();
+    res.status(200).json(clinics);
+  } catch (error) {
+    logger.error('Błąd pobierania poradni:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+app.post('/api/clinics', async (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ message: 'Nazwa poradni jest wymagana' });
+
+  try {
+    const connection = await getConnection();
+    const [result] = await connection.execute('INSERT INTO clinics (name) VALUES (?)', [name]);
+    connection.end();
+    logger.info(`Dodano nową poradnię: ${name}.`);
+    res.status(201).json({ message: 'Dodano poradnię', id: result.insertId });
+  } catch (error) {
+    logger.error('Błąd dodawania poradni:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+app.put('/api/clinics/:id', async (req, res) => {
+  const id = req.params.id;
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ message: 'Nazwa poradni jest wymagana' });
+
+  try {
+    const connection = await getConnection();
+    const [result] = await connection.execute('UPDATE clinics SET name = ? WHERE id = ?', [name, id]);
+    connection.end();
+
+    if (result.affectedRows > 0) {
+      logger.info(`Zaktualizowano poradnię o ID ${id}.`);
+      res.status(200).json({ message: 'Zaktualizowano poradnię' });
+    } else {
+      res.status(404).json({ message: 'Nie znaleziono poradni' });
+    }
+  } catch (error) {
+    logger.error('Błąd edycji poradni:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+app.delete('/api/clinics/:id', async (req, res) => {
+  const id = req.params.id;
+  try {
+    const connection = await getConnection();
+    const [result] = await connection.execute('DELETE FROM clinics WHERE id = ?', [id]);
+    connection.end();
+
+    if (result.affectedRows > 0) {
+      logger.info(`Usunięto poradnię o ID ${id}.`);
+      res.status(200).json({ message: 'Poradnia została usunięta' });
+    } else {
+      res.status(404).json({ message: 'Nie znaleziono poradni' });
+    }
+  } catch (error) {
+    logger.error('Błąd usuwania poradni:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+app.get('/api/clinics/:id/doctors', async (req, res) => {
+  const id = req.params.id;
+  try {
+    const connection = await getConnection();
+    const [doctors] = await connection.execute(`
+      SELECT u.id, u.firstName, u.lastName 
+      FROM doctor_clinics dc
+      JOIN users u ON dc.doctor_id = u.id
+      WHERE dc.clinic_id = ? AND u.role = 'doctor'`, [id]);
+    connection.end();
+    res.status(200).json(doctors);
+  } catch (error) {
+    logger.error('Błąd pobierania lekarzy poradni:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+app.post('/api/clinics/:id/doctors', async (req, res) => {
+  const id = req.params.id;
+  const { doctors } = req.body;
+  if (!Array.isArray(doctors)) {
+    return res.status(400).json({ message: 'Wymagana lista id lekarzy' });
+  }
+
+  try {
+    const connection = await getConnection();
+    await connection.execute('DELETE FROM doctor_clinics WHERE clinic_id = ?', [id]);
+
+    for (const docId of doctors) {
+      await connection.execute('INSERT INTO doctor_clinics (doctor_id, clinic_id) VALUES (?, ?)', [docId, id]);
+    }
+
+    connection.end();
+    logger.info(`Zaktualizowano lekarzy dla poradni o ID ${id}.`);
+    res.status(200).json({ message: 'Zaktualizowano lekarzy dla poradni' });
+  } catch (error) {
+    logger.error('Błąd aktualizacji lekarzy poradni:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+
 /**
  * Widoczne poradnie dla użytkownika
  */
