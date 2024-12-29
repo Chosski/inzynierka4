@@ -11,6 +11,10 @@ require('dotenv').config(); // Wczytuje zmienne z .env
 const { URL } = require('url'); // do parsowania DATABASE_URL
 
 const app = express();
+
+/**
+ * Jeśli chcesz nasłuchiwać na porcie z .env lub domyślnie 3000
+ */
 const PORT = process.env.PORT || 3000;
 
 /** 
@@ -22,6 +26,9 @@ if (!dbUrl) {
   process.exit(1);
 }
 
+/**
+ * Parsujemy URL i rozbijamy na części składowe
+ */
 const parsedDbUrl = new URL(dbUrl);
 const dbConfig = {
   host: parsedDbUrl.hostname,
@@ -43,8 +50,7 @@ const logger = winston.createLogger({
   transports: [
     // zapis logów do pliku system.log
     new winston.transports.File({ filename: path.join(__dirname, 'logs', 'system.log') }),
-    // Opcjonalnie można dodać:
-    // new winston.transports.Console()
+    // new winston.transports.Console() // można odkomentować do debugowania
   ],
 });
 
@@ -79,9 +85,7 @@ app.use((req, res, next) => {
         req.path !== '/index.html' &&
         !req.path.startsWith('/api/login')
       ) {
-        return res
-          .status(503)
-          .send('System jest w trybie konserwacji. Proszę spróbować później.');
+        return res.status(503).send('System jest w trybie konserwacji. Proszę spróbować później.');
       }
       next();
     } catch (parseError) {
@@ -145,7 +149,6 @@ app.post('/api/login', async (req, res) => {
     });
 
   } catch (error) {
-    // W razie błędu:
     logger.error('Błąd logowania:', error);
     return res.status(500).json({
       message: 'Błąd serwera',
@@ -627,380 +630,6 @@ app.delete('/api/schedules/:id', async (req, res) => {
 });
 
 /**
- * Dodawanie pacjenta (POST /api/patients)
- */
-app.post('/api/patients', async (req, res) => {
-  const {
-    firstName,
-    lastName,
-    pesel,
-    gender_id,
-    nationality_id,
-    phone,
-    addressResidence,
-    addressRegistration,
-  } = req.body;
-
-  if (
-    !firstName ||
-    !lastName ||
-    !pesel ||
-    !gender_id ||
-    !nationality_id ||
-    !addressResidence ||
-    !addressRegistration
-  ) {
-    return res
-      .status(400)
-      .json({ message: 'Wymagane dane pacjenta i obu adresów' });
-  }
-
-  let connection;
-  try {
-    connection = await getConnection();
-
-    // sprawdzenie, czy pacjent o tym PESEL już istnieje
-    const [existingPatients] = await connection.execute(
-      'SELECT id FROM patients WHERE pesel = ?',
-      [pesel]
-    );
-    if (existingPatients.length > 0) {
-      await connection.end();
-      return res
-        .status(400)
-        .json({ message: 'Pacjent z tym numerem PESEL już istnieje' });
-    }
-
-    // Funkcja pomocnicza do wstawiania adresu
-    async function insertAddress(addr) {
-      const [result] = await connection.execute(
-        `INSERT INTO addresses (country, city, postal_code, street, house_number, apartment_number)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [
-          addr.country,
-          addr.city,
-          addr.postal_code,
-          addr.street,
-          addr.house_number,
-          addr.apartment_number,
-        ]
-      );
-      return result.insertId;
-    }
-
-    // wstawiamy oba adresy
-    const addressResidence_id = await insertAddress(addressResidence);
-    const addressRegistration_id = await insertAddress(addressRegistration);
-
-    // wstawiamy pacjenta
-    const [resultPatient] = await connection.execute(
-      `INSERT INTO patients (
-         firstName,
-         lastName,
-         pesel,
-         gender_id,
-         nationality_id,
-         phone,
-         addressResidence_id,
-         addressRegistration_id
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        firstName,
-        lastName,
-        pesel,
-        gender_id,
-        nationality_id,
-        phone || null,
-        addressResidence_id,
-        addressRegistration_id,
-      ]
-    );
-
-    await connection.end();
-    logger.info(`Dodano pacjenta: ${firstName} ${lastName}, PESEL=${pesel}.`);
-    return res.status(201).json({ message: 'Dodano pacjenta', id: resultPatient.insertId });
-  } catch (error) {
-    logger.error('Błąd dodawania pacjenta:', error);
-    return res.status(500).json({ message: 'Błąd serwera' });
-  } finally {
-    if (connection) connection.end();
-  }
-});
-
-/**
- * Pobieranie pacjentów
- */
-app.get('/api/patients', async (req, res) => {
-  const { search } = req.query;
-  let query = `
-    SELECT p.*,
-           g.name AS genderName,
-           c.name AS nationalityName
-    FROM patients p
-    LEFT JOIN genders g ON p.gender_id = g.id
-    LEFT JOIN countries c ON p.nationality_id = c.id
-  `;
-  const params = [];
-
-  if (search) {
-    query += ` WHERE p.firstName LIKE ? OR p.lastName LIKE ? OR p.pesel LIKE ?`;
-    const likeSearch = `%${search}%`;
-    params.push(likeSearch, likeSearch, likeSearch);
-  }
-
-  let connection;
-  try {
-    connection = await getConnection();
-    const [patients] = await connection.execute(query, params);
-    await connection.end();
-    return res.status(200).json(patients);
-  } catch (error) {
-    logger.error('Błąd pobierania pacjentów:', error);
-    return res.status(500).json({ message: 'Błąd serwera' });
-  } finally {
-    if (connection) connection.end();
-  }
-});
-
-/**
- * Pobieranie listy płci
- */
-app.get('/api/genders', async (req, res) => {
-  let connection;
-  try {
-    connection = await getConnection();
-    const [genders] = await connection.execute('SELECT id, name FROM genders');
-    await connection.end();
-    return res.status(200).json(genders);
-  } catch (error) {
-    logger.error('Błąd pobierania płci:', error);
-    return res.status(500).json({ message: 'Błąd serwera' });
-  } finally {
-    if (connection) connection.end();
-  }
-});
-
-/**
- * Pobieranie krajów
- */
-app.get('/api/countries', async (req, res) => {
-  let connection;
-  try {
-    connection = await getConnection();
-    const [countries] = await connection.execute('SELECT id, name FROM countries');
-    await connection.end();
-    return res.status(200).json(countries);
-  } catch (error) {
-    logger.error('Błąd pobierania krajów:', error);
-    return res.status(500).json({ message: 'Błąd serwera' });
-  } finally {
-    if (connection) connection.end();
-  }
-});
-
-/**
- * Edycja terminu (zmiana start i end)
- */
-app.put('/api/schedules/:id', async (req, res) => {
-  const { id } = req.params;
-  const { start, end } = req.body;
-
-  if (!start || !end) {
-    return res.status(400).json({ message: 'Wymagane pola: start i end' });
-  }
-
-  let connection;
-  try {
-    connection = await getConnection();
-    const [result] = await connection.execute(
-      'UPDATE schedules SET start_time = ?, end_time = ? WHERE id = ?',
-      [start, end, id]
-    );
-
-    if (result.affectedRows === 0) {
-      await connection.end();
-      return res.status(404).json({ message: 'Nie znaleziono terminu' });
-    }
-
-    await connection.end();
-    logger.info(`Zaktualizowano termin ID=${id}.`);
-    return res.status(200).json({ message: 'Termin zaktualizowany' });
-  } catch (error) {
-    logger.error('Błąd edycji terminu:', error);
-    return res.status(500).json({ message: 'Błąd serwera' });
-  } finally {
-    if (connection) connection.end();
-  }
-});
-
-/**
- * Poradnie: GET /api/clinics
- */
-app.get('/api/clinics', async (req, res) => {
-  let connection;
-  try {
-    connection = await getConnection();
-    const [clinics] = await connection.execute('SELECT id, name FROM clinics');
-    await connection.end();
-    return res.status(200).json(clinics);
-  } catch (error) {
-    logger.error('Błąd pobierania poradni:', error);
-    return res.status(500).json({ message: 'Błąd serwera' });
-  } finally {
-    if (connection) connection.end();
-  }
-});
-
-/**
- * Dodanie nowej poradni (POST /api/clinics)
- */
-app.post('/api/clinics', async (req, res) => {
-  const { name } = req.body;
-  if (!name) {
-    return res.status(400).json({ message: 'Nazwa poradni jest wymagana' });
-  }
-
-  let connection;
-  try {
-    connection = await getConnection();
-    const [result] = await connection.execute(
-      'INSERT INTO clinics (name) VALUES (?)',
-      [name]
-    );
-
-    await connection.end();
-    logger.info(`Dodano nową poradnię: ${name}.`);
-    return res.status(201).json({ message: 'Dodano poradnię', id: result.insertId });
-  } catch (error) {
-    logger.error('Błąd dodawania poradni:', error);
-    return res.status(500).json({ message: 'Błąd serwera' });
-  } finally {
-    if (connection) connection.end();
-  }
-});
-
-/**
- * Edycja poradni (PUT /api/clinics/:id)
- */
-app.put('/api/clinics/:id', async (req, res) => {
-  const { id } = req.params;
-  const { name } = req.body;
-  if (!name) {
-    return res.status(400).json({ message: 'Nazwa poradni jest wymagana' });
-  }
-
-  let connection;
-  try {
-    connection = await getConnection();
-    const [result] = await connection.execute(
-      'UPDATE clinics SET name = ? WHERE id = ?',
-      [name, id]
-    );
-
-    if (result.affectedRows === 0) {
-      await connection.end();
-      return res.status(404).json({ message: 'Nie znaleziono poradni' });
-    }
-
-    await connection.end();
-    logger.info(`Zaktualizowano poradnię o ID=${id}.`);
-    return res.status(200).json({ message: 'Zaktualizowano poradnię' });
-  } catch (error) {
-    logger.error('Błąd edycji poradni:', error);
-    return res.status(500).json({ message: 'Błąd serwera' });
-  } finally {
-    if (connection) connection.end();
-  }
-});
-
-/**
- * Usunięcie poradni
- */
-app.delete('/api/clinics/:id', async (req, res) => {
-  const { id } = req.params;
-  let connection;
-  try {
-    connection = await getConnection();
-    const [result] = await connection.execute(
-      'DELETE FROM clinics WHERE id = ?',
-      [id]
-    );
-
-    if (result.affectedRows === 0) {
-      await connection.end();
-      return res.status(404).json({ message: 'Nie znaleziono poradni' });
-    }
-
-    await connection.end();
-    logger.info(`Usunięto poradnię o ID=${id}.`);
-    return res.status(200).json({ message: 'Poradnia została usunięta' });
-  } catch (error) {
-    logger.error('Błąd usuwania poradni:', error);
-    return res.status(500).json({ message: 'Błąd serwera' });
-  } finally {
-    if (connection) connection.end();
-  }
-});
-
-/**
- * Pobieranie lekarzy danej poradni
- */
-app.get('/api/clinics/:id/doctors', async (req, res) => {
-  const { id } = req.params;
-  let connection;
-  try {
-    connection = await getConnection();
-    const [doctors] = await connection.execute(
-      `SELECT u.id, u.firstName, u.lastName
-       FROM doctor_clinics dc
-       JOIN users u ON dc.doctor_id = u.id
-       WHERE dc.clinic_id = ? AND u.role = 'doctor'`,
-      [id]
-    );
-    await connection.end();
-    return res.status(200).json(doctors);
-  } catch (error) {
-    logger.error('Błąd pobierania lekarzy poradni:', error);
-    return res.status(500).json({ message: 'Błąd serwera' });
-  } finally {
-    if (connection) connection.end();
-  }
-});
-
-/**
- * Ustawienie lekarzy w danej poradni
- */
-app.post('/api/clinics/:id/doctors', async (req, res) => {
-  const { id } = req.params;
-  const { doctors } = req.body;
-  if (!Array.isArray(doctors)) {
-    return res.status(400).json({ message: 'Wymagana lista ID lekarzy' });
-  }
-
-  let connection;
-  try {
-    connection = await getConnection();
-    await connection.execute('DELETE FROM doctor_clinics WHERE clinic_id = ?', [id]);
-
-    for (const docId of doctors) {
-      await connection.execute(
-        'INSERT INTO doctor_clinics (doctor_id, clinic_id) VALUES (?, ?)',
-        [docId, id]
-      );
-    }
-
-    await connection.end();
-    logger.info(`Zaktualizowano lekarzy dla poradni o ID=${id}.`);
-    return res.status(200).json({ message: 'Zaktualizowano lekarzy dla poradni' });
-  } catch (error) {
-    logger.error('Błąd aktualizacji lekarzy poradni:', error);
-    return res.status(500).json({ message: 'Błąd serwera' });
-  } finally {
-    if (connection) connection.end();
-  }
-});
-
-/**
  * Endpoint pobierania konfiguracji systemowej (GET /api/system-config)
  */
 app.get('/api/system-config', async (req, res) => {
@@ -1094,8 +723,8 @@ app.get('/schedule.html', (req, res) => {
 });
 
 /**
- * Uruchamiamy serwer
+ * Uruchamiamy serwer - WAŻNE: nasłuch na '0.0.0.0'
  */
-app.listen(PORT, () => {
-  console.log(`Serwer działa na porcie: http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Serwer działa na http://0.0.0.0:${PORT}`);
 });
