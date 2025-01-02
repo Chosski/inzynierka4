@@ -61,4 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
     receptionButton.addEventListener('click', () => {
       window.location.href = 'reception.html';
     });
+  }
+
   
+});
