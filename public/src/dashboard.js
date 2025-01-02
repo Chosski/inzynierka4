@@ -1,15 +1,13 @@
 document.addEventListener('DOMContentLoaded', () => {
   // Pobierz rolę i login użytkownika z localStorage
-const userRole = localStorage.getItem('userRole');
-const userLogin = localStorage.getItem('userLogin');
-  const userId = localStorage.getItem('userId');
+  const userRole = localStorage.getItem('userRole');
+  const userLogin = localStorage.getItem('userLogin');
 
   if (!userRole || !userLogin) {
     // Jeśli brak danych użytkownika, przekieruj na stronę logowania
-  if (!userRole || !userLogin || !userId) {
-window.location.href = 'index.html';
-return;
-}
+    window.location.href = 'index.html';
+    return;
+  }
 
   // Pobierz elementy nawigacji
   const adminPanelLink = document.getElementById('admin-panel');
@@ -29,10 +27,7 @@ return;
   } else {
     // Nieznana rola – wyloguj użytkownika
     logout();
-  const userLoginSpan = document.getElementById('user-login-span');
-  if (userLoginSpan) {
-    userLoginSpan.textContent = userLogin;
-}
+  }
 
   // Dodaj obsługę kliknięć w linki
   adminPanelLink.addEventListener('click', (e) => {
@@ -60,49 +55,10 @@ return;
     localStorage.removeItem('userLogin');
     localStorage.removeItem('userId'); // na wszelki wypadek usuwamy również userId
     window.location.href = 'index.html';
-  function updateDateTime() {
-    const dateElement = document.getElementById('current-date');
-    if (dateElement) {
-      const now = new Date();
-      const options = { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric', 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      };
-      dateElement.textContent = `Dziś jest: ${now.toLocaleDateString('pl-PL', options)}`;
-    }
-}
+  }
 
   if (receptionButton) {
     receptionButton.addEventListener('click', () => {
       window.location.href = 'reception.html';
     });
-  updateDateTime();
-  setInterval(updateDateTime, 30000);
-
-  async function loadTodaySchedules() {
-    if (userRole === 'doctor') {
-      const today = new Date().toISOString().split('T')[0];
-      try {
-        const res = await fetch(`/api/schedules?doctorId=${userId}&date=${today}`);
-        if (res.ok) {
-          const schedules = await res.json();
-          document.getElementById('todays-schedules').textContent = schedules.length;
-        } else {
-          document.getElementById('todays-schedules').textContent = 'Błąd!';
-        }
-      } catch (err) {
-        console.error('Błąd pobierania dzisiejszych wizyt:', err);
-        document.getElementById('todays-schedules').textContent = 'Błąd!';
-      }
-    } else {
-      document.querySelector('.tile').style.display = 'none';
-    }
-}
-
-  
-  loadTodaySchedules();
-});
+  }
