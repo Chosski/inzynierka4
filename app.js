@@ -394,6 +394,31 @@ app.get('/api/doctors/:id', async (req, res) => {
   }
 });
 
+// Dodano endpoint do pobierania liczby dzisiejszych wizyt dla lekarza
+app.get('/api/schedules/today', async (req, res) => {
+  const { doctorId } = req.query;
+
+  if (!doctorId) {
+    return res.status(400).json({ message: 'doctorId jest wymagany' });
+  }
+
+  try {
+    const connection = await getConnection();
+
+    const query = `
+      SELECT COUNT(*) AS count
+      FROM schedules
+      WHERE doctor_id = ? AND DATE(start_time) = CURDATE()
+    `;
+    const [rows] = await connection.execute(query, [doctorId]);
+    connection.end();
+
+    res.status(200).json({ count: rows[0].count });
+  } catch (error) {
+    logger.error('Błąd pobierania dzisiejszych wizyt:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
 // Terminarze z kolumnami start_time i end_time
 // Dodawanie nowego terminu
 app.post('/api/schedules', async (req, res) => {
