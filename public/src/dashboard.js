@@ -2,8 +2,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Pobierz rolę i login użytkownika z localStorage
   const userRole = localStorage.getItem('userRole');
   const userLogin = localStorage.getItem('userLogin');
+  const userId = localStorage.getItem('userId');
 
-  if (!userRole || !userLogin) {
+  if (!userRole || !userLogin || !userId) {
     // Jeśli brak danych użytkownika, przekieruj na stronę logowania
     window.location.href = 'index.html';
     return;
@@ -29,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     logout();
   }
 
- // Wyświetl login użytkownika
+  // Wyświetl login użytkownika
   const userLoginSpan = document.getElementById('user-login-span');
   if (userLoginSpan) {
     userLoginSpan.textContent = userLogin;
@@ -40,13 +41,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const dateElement = document.getElementById('current-date');
     if (dateElement) {
       const now = new Date();
-      const options = { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric', 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      const options = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
       };
       dateElement.textContent = `Dziś jest: ${now.toLocaleDateString('pl-PL', options)}`;
     }
@@ -57,12 +58,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Pobierz liczbę dzisiejszych wizyt
   async function loadTodaySchedules() {
     if (userRole === 'doctor') {
-      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
       try {
-        const res = await fetch(`/api/schedules?doctorId=${userId}&date=${today}`);
+        const res = await fetch(`/api/schedules/today?doctorId=${userId}`);
         if (res.ok) {
-          const schedules = await res.json();
-          document.getElementById('todays-schedules').textContent = schedules.length;
+          const data = await res.json();
+          document.getElementById('todays-schedules').textContent = data.count;
         } else {
           document.getElementById('todays-schedules').textContent = 'Błąd!';
         }
@@ -71,32 +71,39 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('todays-schedules').textContent = 'Błąd!';
       }
     } else {
-      document.querySelector('.tile').style.display = 'none'; // Ukryj kafel, jeśli nie lekarz
+      const tile = document.querySelector('.tile');
+      if (tile) tile.style.display = 'none'; // Ukryj kafel, jeśli nie lekarz
     }
   }
   loadTodaySchedules();
-});
-  
+
   // Dodaj obsługę kliknięć w linki
-  adminPanelLink.addEventListener('click', (e) => {
-    e.preventDefault();
-    window.location.href = 'admin.html';
-  });
+  if (adminPanelLink) {
+    adminPanelLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.location.href = 'admin.html';
+    });
+  }
 
-  receptionScheduleLink.addEventListener('click', (e) => {
-    e.preventDefault();
-    window.location.href = 'schedule.html';
-  });
+  if (receptionScheduleLink) {
+    receptionScheduleLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.location.href = 'schedule.html';
+    });
+  }
 
-  doctorScheduleLink.addEventListener('click', (e) => {
-    e.preventDefault();
-    // Przekierowujemy do widoku doktora
-    window.location.href = 'doctor.html';
-  });
+  if (doctorScheduleLink) {
+    doctorScheduleLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.location.href = 'doctor.html';
+    });
+  }
 
   // Obsługa wylogowania
   const logoutButton = document.getElementById('logout-button');
-  logoutButton.addEventListener('click', logout);
+  if (logoutButton) {
+    logoutButton.addEventListener('click', logout);
+  }
 
   function logout() {
     localStorage.removeItem('userRole');
@@ -110,6 +117,4 @@ document.addEventListener('DOMContentLoaded', () => {
       window.location.href = 'reception.html';
     });
   }
-
-  
 });
