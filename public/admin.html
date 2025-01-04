@@ -32,6 +32,8 @@
         <li><a href="#" id="system-logs-tab">Podgląd Logów Systemowych</a></li>
         <li><a href="#" id="system-config-tab">Konfiguracja Systemu</a></li>
         <li><a href="#" id="manage-clinics-tab">Zarządzanie Poradniami</a></li>
+        <!-- NOWA ZAKŁADKA -->
+        <li><a href="#" id="manage-permissions-tab">Zarządzanie Uprawnieniami</a></li>
       </ul>
     </nav>
 
@@ -57,7 +59,7 @@
       </form>
 
       <h2>Lista użytkowników</h2>
-       <button id="add-user-button">Dodaj Użytkownika</button>
+      <button id="add-user-button">Dodaj Użytkownika</button>
       <table id="user-list">
         <!-- Lista użytkowników -->
       </table>
@@ -127,7 +129,6 @@
           </form>
         </div>
       </div>
-
     </section>
 
     <!-- Sekcja Zarządzania Poradniami -->
@@ -153,10 +154,9 @@
             <button type="submit" id="save-clinic-button">Zapisz</button>
           </form>
 
-          <!-- Te elementy są widoczne tylko po zapisaniu/edycji poradni (jeśli currentClinicId jest ustawione) -->
           <h3 id="assigned-doctors-title" style="display:none;">Przypisani Lekarze</h3>
           <ul id="assigned-doctors-list" style="display:none;">
-            <!-- Lista przypisanych lekarzy do poradni -->
+            <!-- Lista lekarzy przypisanych do poradni -->
           </ul>
 
           <button id="add-doctor-to-clinic-button" style="display:none;">Dodaj Lekarza</button>
@@ -211,6 +211,73 @@
         <button type="submit">Zapisz Konfigurację</button>
       </form>
     </section>
+
+    <!-- NOWA SEKCJA: Zarządzanie Uprawnieniami -->
+    <section id="manage-permissions-section" style="display: none;">
+      <h2>Zarządzanie Uprawnieniami</h2>
+      <div style="display:flex; gap:30px;">
+        <!-- LEWA STRONA: Uprawnienia -->
+        <div style="flex:1;">
+          <h3>Lista Uprawnień</h3>
+          <button id="add-permission-button">Dodaj Uprawnienie</button>
+          <table id="permissions-list">
+            <!-- wypełniane dynamicznie -->
+          </table>
+        </div>
+
+        <!-- PRAWA STRONA: Grupy -->
+        <div style="flex:1;">
+          <h3>Grupy Uprawnień</h3>
+          <button id="add-permission-group-button">Dodaj Grupę</button>
+          <table id="permission-groups-list">
+            <!-- wypełniane dynamicznie -->
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Modal Dodawania/Edycji Uprawnienia -->
+    <div id="permission-modal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <span class="close-button" id="close-permission-modal">&times;</span>
+        <h2 id="permission-modal-title">Dodaj Uprawnienie</h2>
+        <form id="permission-form">
+          <input type="hidden" id="permission-id">
+          <div class="form-group">
+            <label for="permission-name">Nazwa Uprawnienia:</label>
+            <input type="text" id="permission-name" required>
+          </div>
+          <div class="form-group">
+            <label for="permission-desc">Opis (opcjonalnie):</label>
+            <textarea id="permission-desc" rows="3"></textarea>
+          </div>
+          <button type="submit">Zapisz</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal Dodawania/Edycji Grupy Uprawnień -->
+    <div id="permission-group-modal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <span class="close-button" id="close-permission-group-modal">&times;</span>
+        <h2 id="permission-group-modal-title">Dodaj Grupę Uprawnień</h2>
+        <form id="permission-group-form">
+          <input type="hidden" id="permission-group-id">
+          <div class="form-group">
+            <label for="permission-group-name">Nazwa Grupy:</label>
+            <input type="text" id="permission-group-name" required>
+          </div>
+
+          <h3>Uprawnienia w tej Grupie:</h3>
+          <div id="permission-group-permissions-container">
+            <!-- checkboxy z listą wszystkich uprawnień -->
+          </div>
+          
+          <button type="submit">Zapisz Grupę</button>
+        </form>
+      </div>
+    </div>
+
   </main>
 </body>
 </html>
