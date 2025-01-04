@@ -6,21 +6,19 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  // -------------------------------------------
-  //  ZAKŁADKI (taby) i przypisane sekcje
-  // -------------------------------------------
+  // ---------------------------
+  // Taby nawigacyjne
+  // ---------------------------
   const manageUsersTab = document.getElementById('manage-users-tab');
   const systemLogsTab = document.getElementById('system-logs-tab');
   const systemConfigTab = document.getElementById('system-config-tab');
   const manageClinicsTab = document.getElementById('manage-clinics-tab');
-  // Nowy tab do zarządzania uprawnieniami:
   const managePermissionsTab = document.getElementById('manage-permissions-tab');
 
   const manageUsersSection = document.getElementById('manage-users-section');
   const systemLogsSection = document.getElementById('system-logs-section');
   const systemConfigSection = document.getElementById('system-config-section');
   const manageClinicsSection = document.getElementById('manage-clinics-section');
-  // Nowa sekcja:
   const managePermissionsSection = document.getElementById('manage-permissions-section');
 
   function showSection(section) {
@@ -28,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     systemLogsSection.style.display = 'none';
     systemConfigSection.style.display = 'none';
     manageClinicsSection.style.display = 'none';
-    managePermissionsSection.style.display = 'none';  // ukryj nową sekcję
+    managePermissionsSection.style.display = 'none';
 
     if (section === 'manage-users') {
       manageUsersSection.style.display = 'block';
@@ -66,10 +64,10 @@ document.addEventListener('DOMContentLoaded', () => {
     loadClinics();
   });
 
-  // Obsługa kliknięcia w nową zakładkę:
   managePermissionsTab.addEventListener('click', (e) => {
     e.preventDefault();
     showSection('manage-permissions');
+    // Załaduj listę uprawnień i grup
     loadPermissions();
     loadPermissionGroups();
   });
@@ -77,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Domyślnie pokaż sekcję zarządzania użytkownikami
   showSection('manage-users');
 
-  // Przyciski górne (powrót do dashboardu, wylogowanie)
+  // Górne przyciski
   const backButton = document.getElementById('back-to-dashboard');
   backButton.addEventListener('click', () => {
     window.location.href = 'dashboard.html';
@@ -90,9 +88,9 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.href = 'index.html';
   });
 
-  // -------------------------------------------
-  //  ZARZĄDZANIE UŻYTKOWNIKAMI
-  // -------------------------------------------
+  // ---------------------------
+  // Zarządzanie Użytkownikami
+  // ---------------------------
   const addUserButton = document.getElementById('add-user-button');
   const searchUserForm = document.getElementById('search-user-form');
   const resetSearchButton = document.getElementById('reset-search');
@@ -108,16 +106,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const userFirstNameField = document.getElementById('user-firstName');
   const userLastNameField = document.getElementById('user-lastName');
   const userPeselField = document.getElementById('user-pesel');
-  const userRoleField = document.getElementById('user-role');
+  const userRoleField = document.getElementById('user-role'); // dotychczasowe role
   const userPasswordField = document.getElementById('user-password');
   const userPasswordConfirmField = document.getElementById('user-password-confirm');
   const userClinicsContainer = document.getElementById('user-clinics-container');
+
+  // Nowy select do wyboru grupy uprawnień
+  const userPermissionGroupSelect = document.getElementById('user-permission-group');
 
   addUserButton.addEventListener('click', () => {
     openUserModal();
   });
 
-  function openUserModal(user = null) {
+  async function openUserModal(user = null) {
     if (user) {
       userModalTitle.textContent = 'Edycja Użytkownika';
       userIdField.value = user.id;
@@ -125,14 +126,30 @@ document.addEventListener('DOMContentLoaded', () => {
       userFirstNameField.value = user.firstName;
       userLastNameField.value = user.lastName;
       userPeselField.value = user.pesel;
-      userRoleField.value = user.role;
+      userRoleField.value = user.role; // np. 'doctor', 'admin'...
+
       userPasswordField.value = '';
       userPasswordConfirmField.value = '';
+
+      // Załaduj widoczne poradnie
       loadUserVisibleClinics(user.id);
+      // Załaduj listę grup i oznacz grupę, do której user należy
+      await loadPermissionGroupsIntoSelect(); 
+      const userGroups = await fetchUserPermissionGroups(user.id);
+      if (userGroups && userGroups.length > 0) {
+        // Załóżmy, że user może mieć tylko 1 grupę w tym systemie
+        // (jeśli wiele, trzeba by użyć checkboxów lub multi-select)
+        userPermissionGroupSelect.value = userGroups[0].id;
+      } else {
+        userPermissionGroupSelect.value = '';
+      }
     } else {
       userModalTitle.textContent = 'Dodaj Użytkownika';
       userForm.reset();
       userIdField.value = '';
+      await loadPermissionGroupsIntoSelect();
+      userPermissionGroupSelect.value = '';
+
       loadAllClinicsForUserForm([]);
     }
     userModal.style.display = 'block';
@@ -224,7 +241,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`/api/users/${userId}`, {
               method: 'DELETE',
             });
-
             if (response.ok) {
               alert('Użytkownik został usunięty.');
               loadUsers(currentUserSearchQuery);
@@ -279,6 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    // Walidacja haseł
     if (userId) {
       // Edycja istniejącego
       if ((password || passwordConfirm) && (password !== passwordConfirm)) {
@@ -305,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
       role
     };
 
-    // Jeśli hasło podano i jest zgodne (przy dodawaniu nowego lub edycji)
+    // Jeśli hasło podano i jest zgodne
     if (
       (!userId && password && passwordConfirm && password === passwordConfirm) ||
       (userId && password && passwordConfirm && password === passwordConfirm)
@@ -326,6 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (userData.password) {
           putBody.password = userData.password;
         }
+
         response = await fetch(`/api/users/${userId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -349,8 +367,19 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           alert('Dane użytkownika zostały zaktualizowane.');
         }
+
         // Zapis widocznych poradni
         await saveUserVisibleClinics(newUserId);
+
+        // Zapis grupy uprawnień (jeśli wybrano)
+        const selectedGroupId = userPermissionGroupSelect.value; 
+        if (selectedGroupId) {
+          await assignUserToGroups(newUserId, [ parseInt(selectedGroupId) ]);
+        } else {
+          // Można ewentualnie wyczyścić grupy:
+          // await assignUserToGroups(newUserId, []);
+        }
+
         closeUserModal();
         loadUsers(currentUserSearchQuery);
       } else {
@@ -386,6 +415,67 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // ----------------------------
+  //  Funkcje do "Grupy Uprawnień"
+  // ----------------------------
+  async function loadPermissionGroupsIntoSelect() {
+    try {
+      const resp = await fetch('/api/permission-groups');
+      if (!resp.ok) {
+        throw new Error('Błąd pobierania grup uprawnień.');
+      }
+      const groups = await resp.json();
+
+      userPermissionGroupSelect.innerHTML = '<option value="">--Wybierz--</option>';
+      groups.forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g.id;
+        opt.textContent = g.name;
+        userPermissionGroupSelect.appendChild(opt);
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function fetchUserPermissionGroups(userId) {
+    try {
+      const resp = await fetch(`/api/users/${userId}/all-permissions`);
+      if (!resp.ok) {
+        return [];
+      }
+      const data = await resp.json();
+      // data.groups to np. [{id: 1, name: 'doctor'}, ...]
+      return data.groups || [];
+    } catch (error) {
+      console.error('fetchUserPermissionGroups:', error);
+      return [];
+    }
+  }
+
+  async function assignUserToGroups(userId, groupIds) {
+    try {
+      // Nadpisujemy grupy (i/lub permissions) u usera
+      const resp = await fetch(`/api/users/${userId}/all-permissions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groups: groupIds,      // np. [1]
+          permissions: []        // puste, jeśli nie przypisujemy indywidualnych uprawnień
+        })
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        console.error('Błąd przypisywania grup użytkownikowi:', err);
+      }
+    } catch (error) {
+      console.error('assignUserToGroups:', error);
+    }
+  }
+
+  // ----------------------------
+  // Widoczne poradnie
+  // ----------------------------
   async function loadUserVisibleClinics(userId) {
     try {
       const response = await fetch(`/api/users/${userId}/visible-clinics`);
@@ -429,7 +519,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Resetowanie hasła
+  // ----------------------------
+  // Reset hasła
+  // ----------------------------
   const resetPasswordModal = document.getElementById('reset-password-modal');
   const closeResetPasswordModal = document.getElementById('close-reset-password-modal');
   const temporaryPasswordInput = document.getElementById('temporary-password');
@@ -457,12 +549,14 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Hasło nie może być puste.');
         return;
       }
+
       try {
         const response = await fetch(`/api/users/${id}/reset-password`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ temporaryPassword }),
         });
+
         if (response.ok) {
           alert('Hasło zostało zresetowane.');
           resetPasswordModal.style.display = 'none';
@@ -477,12 +571,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   };
 
-  // Na starcie ładuj listę użytkowników
+  // Na start ładuj listę użytkowników
   loadUsers();
 
-  // -------------------------------------------
-  //  PODGLĄD LOGÓW SYSTEMOWYCH
-  // -------------------------------------------
+
+  // ----------------------------
+  // Podgląd Logów Systemowych
+  // ----------------------------
   async function loadSystemLogs() {
     try {
       const response = await fetch('/api/system-logs');
@@ -498,9 +593,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // -------------------------------------------
-  //  KONFIGURACJA SYSTEMU
-  // -------------------------------------------
+  // ----------------------------
+  // Konfiguracja Systemu
+  // ----------------------------
   const systemConfigForm = document.getElementById('system-config-form');
   systemConfigForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -510,7 +605,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const response = await fetch('/api/system-config', {
-        method: 'PUT', // w app.js mamy PUT
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ maintenanceMode, sessionTimeout, logLevel }),
       });
@@ -540,9 +635,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // -------------------------------------------
-  //  ZARZĄDZANIE PORADNIAMI
-  // -------------------------------------------
+
+  // ----------------------------
+  // Zarządzanie Poradniami
+  // ----------------------------
   const addClinicButton = document.getElementById('add-clinic-button');
   const clinicList = document.getElementById('clinic-list');
   const clinicModal = document.getElementById('clinic-modal');
@@ -553,8 +649,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const clinicNameField = document.getElementById('clinic-name');
   const assignedDoctorsTitle = document.getElementById('assigned-doctors-title');
   const assignedDoctorsList = document.getElementById('assigned-doctors-list');
-
   let currentClinicId = null;
+
   const addDoctorToClinicButton = document.getElementById('add-doctor-to-clinic-button');
   const addDoctorToClinicModal = document.getElementById('add-doctor-to-clinic-modal');
   const closeAddDoctorToClinicModalButton = document.getElementById('close-add-doctor-to-clinic-modal');
@@ -742,7 +838,6 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('Zapisz najpierw poradnię aby móc dodać lekarza.');
       return;
     }
-
     try {
       const response = await fetch('/api/doctors');
       if (response.ok) {
@@ -755,7 +850,6 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('Błąd podczas pobierania listy lekarzy:', error);
       alert('Błąd podczas pobierania listy lekarzy.');
     }
-
     addDoctorToClinicModal.style.display = 'block';
   });
 
@@ -862,15 +956,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // -------------------------------------------
-  //  NOWA SEKCJA: ZARZĄDZANIE UPRAWNIENIAMI
-  // -------------------------------------------
+  // ----------------------------
+  // Zarządzanie Uprawnieniami
+  // ----------------------------
   const permissionsList = document.getElementById('permissions-list');
   const permissionGroupsList = document.getElementById('permission-groups-list');
   const addPermissionButton = document.getElementById('add-permission-button');
   const addPermissionGroupButton = document.getElementById('add-permission-group-button');
 
-  // Modale uprawnień:
   const permissionModal = document.getElementById('permission-modal');
   const closePermissionModalButton = document.getElementById('close-permission-modal');
   const permissionForm = document.getElementById('permission-form');
@@ -879,7 +972,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const permissionDescField = document.getElementById('permission-desc');
   const permissionModalTitle = document.getElementById('permission-modal-title');
 
-  // Modale grup:
   const permissionGroupModal = document.getElementById('permission-group-modal');
   const closePermissionGroupModalButton = document.getElementById('close-permission-group-modal');
   const permissionGroupForm = document.getElementById('permission-group-form');
@@ -895,7 +987,6 @@ document.addEventListener('DOMContentLoaded', () => {
     openPermissionGroupModal();
   });
 
-  // Funkcje zarządzania uprawnieniami
   function openPermissionModal(permission = null) {
     if (permission) {
       permissionModalTitle.textContent = 'Edytuj Uprawnienie';
@@ -909,6 +1000,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     permissionModal.style.display = 'block';
   }
+
   function closePermissionModal() {
     permissionModal.style.display = 'none';
     permissionForm.reset();
@@ -1039,21 +1131,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Funkcje zarządzania grupami
+  // Grupy uprawnień
   function openPermissionGroupModal(group = null) {
     if (group) {
       permissionGroupModalTitle.textContent = 'Edytuj Grupę Uprawnień';
       permissionGroupIdField.value = group.id;
       permissionGroupNameField.value = group.name;
-      loadAllPermissionsForGroupForm(group.id); // aby zaznaczyć perms
+      loadAllPermissionsForGroupForm(group.id);
     } else {
       permissionGroupModalTitle.textContent = 'Dodaj Grupę Uprawnień';
       permissionGroupForm.reset();
       permissionGroupIdField.value = '';
-      loadAllPermissionsForGroupForm(null); // pusta
+      loadAllPermissionsForGroupForm(null);
     }
     permissionGroupModal.style.display = 'block';
   }
+
   function closePermissionGroupModal() {
     permissionGroupModal.style.display = 'none';
     permissionGroupForm.reset();
@@ -1070,11 +1163,11 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     const groupId = permissionGroupIdField.value;
     const name = permissionGroupNameField.value.trim();
-
     if (!name) {
       alert('Nazwa grupy jest wymagana.');
       return;
     }
+
     try {
       let response;
       if (groupId) {
@@ -1161,6 +1254,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.edit-permission-group-button').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         const group = JSON.parse(e.target.getAttribute('data-group'));
+        // Pobierz szczegóły grupy (aby doczytać przypisane uprawnienia)
         try {
           const resp = await fetch(`/api/permission-groups/${group.id}`);
           if (resp.ok) {
@@ -1201,7 +1295,6 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadAllPermissionsForGroupForm(groupId) {
     let assignedPerms = [];
     if (groupId) {
-      // pobieramy szczegółowe dane o grupie
       try {
         const resp = await fetch(`/api/permission-groups/${groupId}`);
         if (resp.ok) {
