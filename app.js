@@ -1,12 +1,14 @@
 /************************************
  * app.js - zmodyfikowana wersja
  ************************************/
+
 const express = require('express');
 const path = require('path');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
 const fs = require('fs');
 const winston = require('winston');
+
 require('dotenv').config(); // Wczytuje zmienne z .env
 const { URL } = require('url'); // do parsowania DATABASE_URL
 
@@ -18,7 +20,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 /** 
- * Odczytujemy z .env zmienną: DATABASE_URL (np. "mysql://root:haslo@mysql-xsuk.railway.internal:3306/myapp")
+ * Odczytujemy z .env zmienną: DATABASE_URL (np. "mysql://root:haslo@host:3306/mydb")
  */
 const dbUrl = process.env.DATABASE_URL;
 if (!dbUrl) {
@@ -50,8 +52,8 @@ const logger = winston.createLogger({
   transports: [
     // zapis logów do pliku system.log
     new winston.transports.File({ filename: path.join(__dirname, 'logs', 'system.log') }),
-    // Odkomentuj w razie potrzeby debugowania w konsoli:
-    // new winston.transports.Console()
+    // Jeśli chcesz debugować w konsoli, odkomentuj:
+    // new winston.transports.Console(),
   ],
 });
 
@@ -59,6 +61,23 @@ const logger = winston.createLogger({
  * Ścieżka do pliku config.json (zawierającego np. maintenanceMode)
  */
 const configFilePath = path.join(__dirname, 'config.json');
+
+/**
+ * Funkcja pomocnicza do łączenia się z bazą
+ */
+async function getConnection() {
+  let connection;
+  try {
+    connection = await mysql.createConnection(dbConfig);
+    // Testowe zapytanie, żeby sprawdzić czy połączenie działa:
+    await connection.query('SELECT 1');
+    console.log('Połączenie z bazą danych działa poprawnie!');
+  } catch (err) {
+    console.error('Błąd testu połączenia z bazą:', err);
+    throw err;
+  }
+  return connection;
+}
 
 /**
  * Parsowanie JSON w body
@@ -96,24 +115,12 @@ app.use((req, res, next) => {
   });
 });
 
-/**
- * Funkcja pomocnicza do łączenia się z bazą
- */
-async function getConnection() {
-  let connection;
-  try {
-    connection = await mysql.createConnection(dbConfig);
-    // Testowe zapytanie, żeby sprawdzić czy połączenie działa:
-    await connection.query('SELECT 1');
-    console.log('Połączenie z bazą danych działa poprawnie!');
-  } catch (err) {
-    console.error('Błąd testu połączenia z bazą:', err);
-    throw err;
-  }
-  return connection;
-}
 
-// Logowanie
+/*
+|--------------------------------------------------------------------------
+| LOGOWANIE
+|--------------------------------------------------------------------------
+*/
 app.post('/api/login', async (req, res) => {
   const { login, password } = req.body;
   try {
@@ -146,7 +153,14 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// Użytkownicy
+
+/*
+|--------------------------------------------------------------------------
+| UŻYTKOWNICY
+|--------------------------------------------------------------------------
+*/
+
+// Pobieranie listy użytkowników (z opcjonalnym filtrem login/lastName)
 app.get('/api/users', async (req, res) => {
   try {
     const { login, lastName } = req.query;
@@ -171,6 +185,7 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
+// Pobieranie konkretnego użytkownika
 app.get('/api/users/:id', async (req, res) => {
   const id = req.params.id;
   try {
@@ -189,11 +204,16 @@ app.get('/api/users/:id', async (req, res) => {
   }
 });
 
+// Dodawanie użytkownika
 app.post('/api/users', async (req, res) => {
   const { login, firstName, lastName, pesel, role, password } = req.body;
   try {
     const connection = await getConnection();
-    const [existingUsers] = await connection.execute('SELECT * FROM users WHERE login = ? OR pesel = ?', [login, pesel]);
+    // Sprawdź, czy istnieje już użytkownik o podanym loginie lub PESEL
+    const [existingUsers] = await connection.execute(
+      'SELECT * FROM users WHERE login = ? OR pesel = ?',
+      [login, pesel]
+    );
 
     if (existingUsers.length > 0) {
       connection.end();
@@ -217,6 +237,7 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
+// Usuwanie użytkownika
 app.delete('/api/users/:id', async (req, res) => {
   const id = req.params.id;
   try {
@@ -236,7 +257,7 @@ app.delete('/api/users/:id', async (req, res) => {
   }
 });
 
-// Edycja użytkownika - opcjonalne hasło
+// Edycja użytkownika (opcjonalna zmiana hasła)
 app.put('/api/users/:id', async (req, res) => {
   const id = req.params.id;
   const { firstName, lastName, pesel, role, password } = req.body;
@@ -248,6 +269,7 @@ app.put('/api/users/:id', async (req, res) => {
     );
 
     if (result.affectedRows > 0) {
+      // Jeżeli przesłano nowe hasło
       if (password && password.trim() !== '') {
         const hashedPassword = await bcrypt.hash(password.trim(), 10);
         await connection.execute(
@@ -269,6 +291,7 @@ app.put('/api/users/:id', async (req, res) => {
   }
 });
 
+// Resetowanie hasła użytkownika (np. generowanie tymczasowego hasła)
 app.put('/api/users/:id/reset-password', async (req, res) => {
   const id = req.params.id;
   const { temporaryPassword } = req.body;
@@ -297,7 +320,11 @@ app.put('/api/users/:id/reset-password', async (req, res) => {
   }
 });
 
-// Widoczne poradnie dla użytkownika
+/*
+|--------------------------------------------------------------------------
+| WIDOCZNE PORADNIE DLA UŻYTKOWNIKA
+|--------------------------------------------------------------------------
+*/
 app.get('/api/users/:id/visible-clinics', async (req, res) => {
   const userId = req.params.id;
   try {
@@ -315,8 +342,6 @@ app.get('/api/users/:id/visible-clinics', async (req, res) => {
     res.status(500).json({ message: 'Błąd serwera' });
   }
 });
-
-
 
 app.post('/api/users/:id/visible-clinics', async (req, res) => {
   const id = req.params.id;
@@ -342,6 +367,12 @@ app.post('/api/users/:id/visible-clinics', async (req, res) => {
   }
 });
 
+
+/*
+|--------------------------------------------------------------------------
+| LEKARZE
+|--------------------------------------------------------------------------
+*/
 app.get('/api/doctors', async (req, res) => {
   const { clinicId, lastName } = req.query;
   let query = 'SELECT u.id, u.firstName, u.lastName FROM users u WHERE u.role = "doctor"';
@@ -381,7 +412,10 @@ app.get('/api/doctors/:id', async (req, res) => {
   const id = req.params.id;
   try {
     const connection = await getConnection();
-    const [docs] = await connection.execute('SELECT id, firstName, lastName FROM users WHERE id = ? AND role="doctor"', [id]);
+    const [docs] = await connection.execute(
+      'SELECT id, firstName, lastName FROM users WHERE id = ? AND role="doctor"',
+      [id]
+    );
     connection.end();
     if (docs.length > 0) {
       res.status(200).json(docs[0]);
@@ -394,6 +428,12 @@ app.get('/api/doctors/:id', async (req, res) => {
   }
 });
 
+
+/*
+|--------------------------------------------------------------------------
+| TERMINARZ
+|--------------------------------------------------------------------------
+*/
 // Dodano endpoint do pobierania liczby dzisiejszych wizyt dla lekarza
 app.get('/api/schedules/today', async (req, res) => {
   const { doctorId } = req.query;
@@ -404,7 +444,6 @@ app.get('/api/schedules/today', async (req, res) => {
 
   try {
     const connection = await getConnection();
-
     const query = `
       SELECT COUNT(*) AS count
       FROM schedules
@@ -419,7 +458,7 @@ app.get('/api/schedules/today', async (req, res) => {
     res.status(500).json({ message: 'Błąd serwera' });
   }
 });
-// Terminarze z kolumnami start_time i end_time
+
 // Dodawanie nowego terminu
 app.post('/api/schedules', async (req, res) => {
   const { doctorId, patientId, start, end, clinicId } = req.body;
@@ -431,8 +470,8 @@ app.post('/api/schedules', async (req, res) => {
   let endTime = end;
   if (!endTime) {
     const startDate = new Date(start);
-    const endDate = new Date(startDate.getTime() + 30*60000);
-    endTime = endDate.toISOString().slice(0,19).replace('T',' ');
+    const endDate = new Date(startDate.getTime() + 30 * 60000);
+    endTime = endDate.toISOString().slice(0, 19).replace('T', ' ');
   }
 
   try {
@@ -462,7 +501,11 @@ app.get('/api/schedules', async (req, res) => {
     const connection = await getConnection();
 
     let query = `
-      SELECT s.*, p.firstName AS patientFirstName, p.lastName AS patientLastName, p.pesel AS patientPesel, c.name AS clinicName
+      SELECT s.*,
+             p.firstName AS patientFirstName,
+             p.lastName AS patientLastName,
+             p.pesel AS patientPesel,
+             c.name AS clinicName
       FROM schedules s
       JOIN patients p ON s.patient_id = p.id
       JOIN clinics c ON s.clinic_id = c.id
@@ -475,9 +518,10 @@ app.get('/api/schedules', async (req, res) => {
       params.push(clinicId);
     } else {
       // Pobierz wszystkie poradnie przypisane do lekarza
-      const [clinicRows] = await connection.execute(`
-        SELECT clinic_id FROM doctor_clinics WHERE doctor_id = ?
-      `, [doctorId]);
+      const [clinicRows] = await connection.execute(
+        'SELECT clinic_id FROM doctor_clinics WHERE doctor_id = ?',
+        [doctorId]
+      );
 
       const clinicIds = clinicRows.map(row => row.clinic_id);
 
@@ -537,6 +581,42 @@ app.delete('/api/schedules/:id', async (req, res) => {
   }
 });
 
+// Edycja terminu (start i end)
+app.put('/api/schedules/:id', async (req, res) => {
+  const id = req.params.id;
+  const { start, end } = req.body;
+
+  if (!start || !end) {
+    return res.status(400).json({ message: 'Wymagane pola: start i end' });
+  }
+
+  try {
+    const connection = await getConnection();
+    const [result] = await connection.execute(
+      'UPDATE schedules SET start_time = ?, end_time = ? WHERE id = ?',
+      [start, end, id]
+    );
+    connection.end();
+
+    if (result.affectedRows > 0) {
+      logger.info(`Zaktualizowano termin ID ${id}.`);
+      res.status(200).json({ message: 'Termin zaktualizowany' });
+    } else {
+      res.status(404).json({ message: 'Nie znaleziono terminu' });
+    }
+  } catch (error) {
+    logger.error('Błąd edycji terminu:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| PACJENCI
+|--------------------------------------------------------------------------
+*/
+// Dodawanie pacjenta (z osobną tabelą addresses)
 app.post('/api/patients', async (req, res) => {
   const {
     firstName,
@@ -592,7 +672,7 @@ app.post('/api/patients', async (req, res) => {
   }
 });
 
-
+// Pobieranie pacjentów (z wyszukiwaniem po imieniu, nazwisku, peselu)
 app.get('/api/patients', async (req, res) => {
   const { search } = req.query;
   let query = `
@@ -620,6 +700,7 @@ app.get('/api/patients', async (req, res) => {
   }
 });
 
+// Płcie
 app.get('/api/genders', async (req, res) => {
   try {
     const connection = await getConnection();
@@ -632,6 +713,7 @@ app.get('/api/genders', async (req, res) => {
   }
 });
 
+// Kraje
 app.get('/api/countries', async (req, res) => {
   try {
     const connection = await getConnection();
@@ -645,36 +727,11 @@ app.get('/api/countries', async (req, res) => {
 });
 
 
-// Edycja terminu (start i end)
-app.put('/api/schedules/:id', async (req, res) => {
-  const id = req.params.id;
-  const { start, end } = req.body;
-
-  if (!start || !end) {
-    return res.status(400).json({ message: 'Wymagane pola: start i end' });
-  }
-
-  try {
-    const connection = await getConnection();
-    const [result] = await connection.execute(
-      'UPDATE schedules SET start_time = ?, end_time = ? WHERE id = ?',
-      [start, end, id]
-    );
-    connection.end();
-
-    if (result.affectedRows > 0) {
-      logger.info(`Zaktualizowano termin ID ${id}.`);
-      res.status(200).json({ message: 'Termin zaktualizowany' });
-    } else {
-      res.status(404).json({ message: 'Nie znaleziono terminu' });
-    }
-  } catch (error) {
-    logger.error('Błąd edycji terminu:', error);
-    res.status(500).json({ message: 'Błąd serwera' });
-  }
-});
-
-// Poradnie
+/*
+|--------------------------------------------------------------------------
+| PORADNIE
+|--------------------------------------------------------------------------
+*/
 app.get('/api/clinics', async (req, res) => {
   try {
     const connection = await getConnection();
@@ -744,6 +801,7 @@ app.delete('/api/clinics/:id', async (req, res) => {
   }
 });
 
+// Pobieranie lekarzy przypisanych do poradni
 app.get('/api/clinics/:id/doctors', async (req, res) => {
   const id = req.params.id;
   try {
@@ -752,7 +810,8 @@ app.get('/api/clinics/:id/doctors', async (req, res) => {
       SELECT u.id, u.firstName, u.lastName 
       FROM doctor_clinics dc
       JOIN users u ON dc.doctor_id = u.id
-      WHERE dc.clinic_id = ? AND u.role = 'doctor'`, [id]);
+      WHERE dc.clinic_id = ? AND u.role = 'doctor'
+    `, [id]);
     connection.end();
     res.status(200).json(doctors);
   } catch (error) {
@@ -785,17 +844,19 @@ app.post('/api/clinics/:id/doctors', async (req, res) => {
   }
 });
 
-// Endpoint pobierania konfiguracji systemowej
+
+/*
+|--------------------------------------------------------------------------
+| KONFIGURACJA SYSTEMU
+|--------------------------------------------------------------------------
+*/
+// Odczyt konfiguracji systemu (config.json)
 app.get('/api/system-config', async (req, res) => {
   try {
-    const configFilePath = path.join(__dirname, 'config.json');
-
-    // Sprawdzenie, czy plik konfiguracyjny istnieje
     if (!fs.existsSync(configFilePath)) {
       return res.status(404).json({ message: 'Plik konfiguracji nie został znaleziony.' });
     }
 
-    // Czytanie zawartości pliku konfiguracyjnego
     fs.readFile(configFilePath, 'utf8', (err, data) => {
       if (err) {
         logger.error('Błąd odczytu pliku config.json:', err);
@@ -815,19 +876,16 @@ app.get('/api/system-config', async (req, res) => {
   }
 });
 
-// Endpoint aktualizacji konfiguracji systemowej
+// Aktualizacja konfiguracji systemu (nadpisanie config.json)
 app.put('/api/system-config', async (req, res) => {
   try {
     const newConfig = req.body; // Zakładamy, że ciało żądania zawiera nową konfigurację jako JSON
 
-    // Walidacja danych (przykładowa)
+    // Przykładowa walidacja (można rozszerzyć)
     if (typeof newConfig !== 'object' || Array.isArray(newConfig) || newConfig === null) {
       return res.status(400).json({ message: 'Nieprawidłowy format danych konfiguracji.' });
     }
 
-    const configFilePath = path.join(__dirname, 'config.json');
-
-    // Zapis nowej konfiguracji do pliku
     fs.writeFile(configFilePath, JSON.stringify(newConfig, null, 2), 'utf8', (err) => {
       if (err) {
         logger.error('Błąd zapisu do pliku config.json:', err);
@@ -841,16 +899,15 @@ app.put('/api/system-config', async (req, res) => {
   }
 });
 
+// Podgląd logów systemowych
 app.get('/api/system-logs', async (req, res) => {
   try {
     const logFilePath = path.join(__dirname, 'logs', 'system.log');
 
-    // Sprawdzenie, czy plik istnieje
     if (!fs.existsSync(logFilePath)) {
       return res.status(404).json({ message: 'Plik logów nie został znaleziony.' });
     }
 
-    // Czytanie zawartości pliku logów
     fs.readFile(logFilePath, 'utf8', (err, data) => {
       if (err) {
         logger.error('Błąd odczytu pliku system.log:', err);
@@ -864,7 +921,12 @@ app.get('/api/system-logs', async (req, res) => {
   }
 });
 
-// Strony statyczne
+
+/*
+|--------------------------------------------------------------------------
+| STRONY STATYCZNE
+|--------------------------------------------------------------------------
+*/
 app.get('/edit_patient.html', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/edit_patient.html'));
 });
@@ -875,12 +937,356 @@ app.get('/add_user.html', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/add_user.html'));
 });
 
-
 app.get('/schedule.html', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/schedule.html'));
 });
 
+
+/*
+|--------------------------------------------------------------------------
+| === PERMISSIONS & PERMISSION GROUPS ===
+|--------------------------------------------------------------------------
+| Poniżej przykładowe endpointy do obsługi szczegółowych uprawnień i grup
+| uprawnień. Aby działały, musisz mieć odpowiednie tabele w bazie, np.:
+|  - permissions (id, name, description)
+|  - permission_groups (id, name)
+|  - permission_group_permissions (group_id, permission_id)
+|  - user_permissions (user_id, permission_id)
+|  - user_permission_groups (user_id, group_id)
+|--------------------------------------------------------------------------
+*/
+
+// --- 1. Permissions ---
+app.get('/api/permissions', async (req, res) => {
+  try {
+    const connection = await getConnection();
+    const [permissions] = await connection.query('SELECT * FROM permissions');
+    connection.end();
+    res.status(200).json(permissions);
+  } catch (error) {
+    logger.error('Błąd pobierania uprawnień:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+app.post('/api/permissions', async (req, res) => {
+  const { name, description } = req.body;
+  if (!name) {
+    return res.status(400).json({ message: 'Nazwa uprawnienia jest wymagana' });
+  }
+  try {
+    const connection = await getConnection();
+    const [result] = await connection.execute(
+      'INSERT INTO permissions (name, description) VALUES (?, ?)',
+      [name, description || '']
+    );
+    connection.end();
+    logger.info(`Dodano nowe uprawnienie: ${name}.`);
+    res.status(201).json({ message: 'Dodano uprawnienie', id: result.insertId });
+  } catch (error) {
+    logger.error('Błąd dodawania uprawnienia:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+app.get('/api/permissions/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const connection = await getConnection();
+    const [rows] = await connection.execute('SELECT * FROM permissions WHERE id = ?', [id]);
+    connection.end();
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Nie znaleziono uprawnienia' });
+    }
+    res.status(200).json(rows[0]);
+  } catch (error) {
+    logger.error('Błąd pobierania szczegółów uprawnienia:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+app.put('/api/permissions/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, description } = req.body;
+  if (!name) {
+    return res.status(400).json({ message: 'Nazwa uprawnienia jest wymagana' });
+  }
+  try {
+    const connection = await getConnection();
+    const [result] = await connection.execute(
+      'UPDATE permissions SET name = ?, description = ? WHERE id = ?',
+      [name, description || '', id]
+    );
+    connection.end();
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Nie znaleziono uprawnienia' });
+    }
+    logger.info(`Zaktualizowano uprawnienie ID ${id}.`);
+    res.status(200).json({ message: 'Uprawnienie zaktualizowane' });
+  } catch (error) {
+    logger.error('Błąd aktualizacji uprawnienia:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+app.delete('/api/permissions/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const connection = await getConnection();
+    const [result] = await connection.execute('DELETE FROM permissions WHERE id = ?', [id]);
+    connection.end();
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Nie znaleziono uprawnienia' });
+    }
+    logger.info(`Usunięto uprawnienie ID ${id}.`);
+    res.status(200).json({ message: 'Uprawnienie zostało usunięte' });
+  } catch (error) {
+    logger.error('Błąd usuwania uprawnienia:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+
+// --- 2. Permission Groups ---
+app.get('/api/permission-groups', async (req, res) => {
+  try {
+    const connection = await getConnection();
+    const [groups] = await connection.query('SELECT * FROM permission_groups');
+    connection.end();
+    res.status(200).json(groups);
+  } catch (error) {
+    logger.error('Błąd pobierania grup uprawnień:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+app.post('/api/permission-groups', async (req, res) => {
+  const { name } = req.body;
+  if (!name) {
+    return res.status(400).json({ message: 'Nazwa grupy jest wymagana' });
+  }
+  try {
+    const connection = await getConnection();
+    const [result] = await connection.execute(
+      'INSERT INTO permission_groups (name) VALUES (?)',
+      [name]
+    );
+    connection.end();
+    logger.info(`Dodano nową grupę uprawnień: ${name}.`);
+    res.status(201).json({ message: 'Dodano grupę uprawnień', id: result.insertId });
+  } catch (error) {
+    logger.error('Błąd dodawania grupy uprawnień:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+app.get('/api/permission-groups/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const connection = await getConnection();
+    const [groups] = await connection.execute(
+      'SELECT * FROM permission_groups WHERE id = ?',
+      [id]
+    );
+    if (groups.length === 0) {
+      connection.end();
+      return res.status(404).json({ message: 'Nie znaleziono grupy' });
+    }
+
+    // pobierz listę uprawnień przypisanych do tej grupy
+    const [perms] = await connection.execute(
+      `SELECT p.* 
+       FROM permission_group_permissions pgp
+       JOIN permissions p ON pgp.permission_id = p.id
+       WHERE pgp.group_id = ?`,
+      [id]
+    );
+
+    connection.end();
+    res.status(200).json({
+      id: groups[0].id,
+      name: groups[0].name,
+      permissions: perms,
+    });
+  } catch (error) {
+    logger.error('Błąd pobierania grupy uprawnień:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+app.put('/api/permission-groups/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+  if (!name) {
+    return res.status(400).json({ message: 'Nazwa grupy jest wymagana' });
+  }
+  try {
+    const connection = await getConnection();
+    const [result] = await connection.execute(
+      'UPDATE permission_groups SET name = ? WHERE id = ?',
+      [name, id]
+    );
+    connection.end();
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Nie znaleziono grupy' });
+    }
+    logger.info(`Zaktualizowano grupę uprawnień ID ${id}.`);
+    res.status(200).json({ message: 'Grupa zaktualizowana' });
+  } catch (error) {
+    logger.error('Błąd aktualizacji grupy uprawnień:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+app.delete('/api/permission-groups/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const connection = await getConnection();
+    // Najpierw usuń powiązania
+    await connection.execute('DELETE FROM permission_group_permissions WHERE group_id = ?', [id]);
+
+    // Następnie usuń samą grupę
+    const [result] = await connection.execute('DELETE FROM permission_groups WHERE id = ?', [id]);
+    connection.end();
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Nie znaleziono grupy' });
+    }
+    logger.info(`Usunięto grupę uprawnień ID ${id}.`);
+    res.status(200).json({ message: 'Grupa uprawnień została usunięta' });
+  } catch (error) {
+    logger.error('Błąd usuwania grupy uprawnień:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+// Przypisywanie uprawnień do grupy (nadpisywanie listy)
+app.post('/api/permission-groups/:id/permissions', async (req, res) => {
+  const { id } = req.params;
+  const { permissions } = req.body; // Tablica ID uprawnień
+  if (!Array.isArray(permissions)) {
+    return res.status(400).json({ message: 'Oczekiwano tablicy ID uprawnień' });
+  }
+  try {
+    const connection = await getConnection();
+
+    // Czy istnieje taka grupa?
+    const [gr] = await connection.execute('SELECT id FROM permission_groups WHERE id = ?', [id]);
+    if (gr.length === 0) {
+      connection.end();
+      return res.status(404).json({ message: 'Nie znaleziono grupy' });
+    }
+
+    // Usuń poprzednie powiązania
+    await connection.execute('DELETE FROM permission_group_permissions WHERE group_id = ?', [id]);
+
+    // Dodaj nowe
+    for (const permId of permissions) {
+      await connection.execute(
+        'INSERT INTO permission_group_permissions (group_id, permission_id) VALUES (?, ?)',
+        [id, permId]
+      );
+    }
+    connection.end();
+    logger.info(`Zaktualizowano uprawnienia grupy ID ${id}.`);
+    res.status(200).json({ message: 'Zaktualizowano uprawnienia w grupie' });
+  } catch (error) {
+    logger.error('Błąd przypisywania uprawnień do grupy:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+
+// --- 3. USER -> PERMISSIONS / GROUPS ---
+// Pobranie wszystkich uprawnień i grup przypisanych do użytkownika
+app.get('/api/users/:id/all-permissions', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const connection = await getConnection();
+
+    // Uprawnienia „pojedyncze”
+    const [userPerms] = await connection.execute(
+      `SELECT p.* 
+       FROM user_permissions up
+       JOIN permissions p ON up.permission_id = p.id
+       WHERE up.user_id = ?`,
+      [id]
+    );
+
+    // Grupy uprawnień
+    const [userGroups] = await connection.execute(
+      `SELECT g.* 
+       FROM user_permission_groups ug
+       JOIN permission_groups g ON ug.group_id = g.id
+       WHERE ug.user_id = ?`,
+      [id]
+    );
+
+    connection.end();
+    res.status(200).json({
+      permissions: userPerms,
+      groups: userGroups
+    });
+  } catch (error) {
+    logger.error('Błąd pobierania uprawnień użytkownika:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+// Nadpisanie wszystkich uprawnień i grup użytkownika
+app.post('/api/users/:id/all-permissions', async (req, res) => {
+  const { id } = req.params;
+  const { permissions, groups } = req.body; 
+  // Oczekujemy np. { permissions: [1,2], groups: [3] }
+
+  if (!Array.isArray(permissions) || !Array.isArray(groups)) {
+    return res.status(400).json({ message: 'Pole permissions i/lub groups musi być tablicą' });
+  }
+
+  try {
+    const connection = await getConnection();
+
+    // Czy istnieje taki user?
+    const [usr] = await connection.execute('SELECT id FROM users WHERE id = ?', [id]);
+    if (usr.length === 0) {
+      connection.end();
+      return res.status(404).json({ message: 'Nie znaleziono użytkownika' });
+    }
+
+    // Usuń poprzednie powiązania
+    await connection.execute('DELETE FROM user_permissions WHERE user_id = ?', [id]);
+    await connection.execute('DELETE FROM user_permission_groups WHERE user_id = ?', [id]);
+
+    // Dodaj nowe pojedyncze uprawnienia
+    for (const permId of permissions) {
+      await connection.execute(
+        'INSERT INTO user_permissions (user_id, permission_id) VALUES (?, ?)',
+        [id, permId]
+      );
+    }
+
+    // Dodaj nowe grupy
+    for (const grpId of groups) {
+      await connection.execute(
+        'INSERT INTO user_permission_groups (user_id, group_id) VALUES (?, ?)',
+        [id, grpId]
+      );
+    }
+
+    connection.end();
+    logger.info(`Zaktualizowano uprawnienia/grupy użytkownika ID ${id}.`);
+    res.status(200).json({ message: 'Zaktualizowano uprawnienia użytkownika' });
+  } catch (error) {
+    logger.error('Błąd przypisywania uprawnień/grup do użytkownika:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| URUCHOMIENIE SERWERA
+|--------------------------------------------------------------------------
+*/
 app.listen(PORT, () => {
   console.log(`Serwer działa na http://localhost:${PORT}`);
 });
-
