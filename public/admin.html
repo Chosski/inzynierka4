@@ -15,7 +15,6 @@
       }
     })();
   </script>
-
 </head>
 <body>
   <header>
@@ -25,6 +24,7 @@
       <button id="logout-button">Wyloguj się</button>
     </div>
   </header>
+
   <main>
     <nav>
       <ul>
@@ -32,7 +32,7 @@
         <li><a href="#" id="system-logs-tab">Podgląd Logów Systemowych</a></li>
         <li><a href="#" id="system-config-tab">Konfiguracja Systemu</a></li>
         <li><a href="#" id="manage-clinics-tab">Zarządzanie Poradniami</a></li>
-        <!-- NOWA ZAKŁADKA -->
+        <!-- Nowa zakładka – Zarządzanie Uprawnieniami -->
         <li><a href="#" id="manage-permissions-tab">Zarządzanie Uprawnieniami</a></li>
       </ul>
     </nav>
@@ -61,7 +61,7 @@
       <h2>Lista użytkowników</h2>
       <button id="add-user-button">Dodaj Użytkownika</button>
       <table id="user-list">
-        <!-- Lista użytkowników -->
+        <!-- Lista użytkowników (wypełniana dynamicznie) -->
       </table>
 
       <!-- Modal Dodawania/Edycji Użytkownika -->
@@ -69,6 +69,7 @@
         <div class="modal-content">
           <span class="close-button" id="close-user-modal">&times;</span>
           <h2 id="user-modal-title">Dodaj Użytkownika</h2>
+
           <form id="user-form">
             <input type="hidden" id="user-id" value="">
             <div class="form-group">
@@ -88,14 +89,24 @@
               <input type="text" id="user-pesel" required pattern="\d{11}">
             </div>
             <div class="form-group">
-              <label for="user-role">Rola:</label>
-              <select id="user-role" required>
+              <label for="user-role">Rola (dotychczasowe pole, jeśli potrzebne):</label>
+              <select id="user-role">
                 <option value="">Wybierz rolę</option>
                 <option value="admin">Administrator</option>
                 <option value="reception">Rejestracja</option>
                 <option value="doctor">Lekarz</option>
               </select>
             </div>
+
+            <!-- Nowe pole: Grupa Uprawnień -->
+            <div class="form-group">
+              <label for="user-permission-group">Grupa Uprawnień:</label>
+              <select id="user-permission-group">
+                <!-- Wypełniany dynamicznie z /api/permission-groups -->
+                <option value="">--Wybierz--</option>
+              </select>
+            </div>
+
             <div class="form-group">
               <label for="user-password">Hasło (opcjonalne przy edycji):</label>
               <input type="password" id="user-password">
@@ -104,12 +115,14 @@
               <label for="user-password-confirm">Potwierdź Hasło:</label>
               <input type="password" id="user-password-confirm">
             </div>
+
             <div class="form-group">
-              <label>Widoczne Poradnie:</label>
+              <label>Widoczne Poradnie (checkboxy):</label>
               <div id="user-clinics-container">
-                <!-- Lista poradni jako checkboxy -->
+                <!-- Lista poradni jako checkboxy (wypełniana dynamicznie) -->
               </div>
             </div>
+
             <button type="submit" id="save-user-button">Zapisz</button>
           </form>
         </div>
@@ -212,7 +225,7 @@
       </form>
     </section>
 
-    <!-- NOWA SEKCJA: Zarządzanie Uprawnieniami -->
+    <!-- Sekcja Zarządzania Uprawnieniami -->
     <section id="manage-permissions-section" style="display: none;">
       <h2>Zarządzanie Uprawnieniami</h2>
       <div style="display:flex; gap:30px;">
@@ -225,7 +238,7 @@
           </table>
         </div>
 
-        <!-- PRAWA STRONA: Grupy -->
+        <!-- PRAWA STRONA: Grupy Uprawnień -->
         <div style="flex:1;">
           <h3>Grupy Uprawnień</h3>
           <button id="add-permission-group-button">Dodaj Grupę</button>
@@ -272,7 +285,7 @@
           <div id="permission-group-permissions-container">
             <!-- checkboxy z listą wszystkich uprawnień -->
           </div>
-          
+
           <button type="submit">Zapisz Grupę</button>
         </form>
       </div>
