@@ -86,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.href = 'index.html';
   });
 
+
   // ---------------------------
   // Zarządzanie Użytkownikami
   // ---------------------------
@@ -142,7 +143,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   closeAddUserModalButton.addEventListener('click', closeAddUserModal);
-
   window.addEventListener('click', (event) => {
     if (event.target === addUserModal) {
       closeAddUserModal();
@@ -191,7 +191,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   closeEditUserModalButton.addEventListener('click', closeEditUserModal);
-
   window.addEventListener('click', (event) => {
     if (event.target === editUserModal) {
       closeEditUserModal();
@@ -573,6 +572,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   };
 
+
   // ---------------------------
   // Zarządzanie Poradniami
   // ---------------------------
@@ -650,7 +650,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Tutaj analogicznie modal do dodawania/edycji poradni
   const clinicModal = document.getElementById('clinic-modal');
   const closeClinicModalButton = document.getElementById('close-clinic-modal');
   const clinicForm = document.getElementById('clinic-form');
@@ -658,7 +657,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const clinicNameField = document.getElementById('clinic-name');
   const assignedDoctorsTitle = document.getElementById('assigned-doctors-title');
   const assignedDoctorsList = document.getElementById('assigned-doctors-list');
-  const addClinicButton = document.getElementById('add-clinic-button');
+  const addClinicButtonEl = document.getElementById('add-clinic-button');
   let currentClinicId = null;
 
   const addDoctorToClinicButton = document.getElementById('add-doctor-to-clinic-button');
@@ -666,7 +665,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const closeAddDoctorToClinicModalButton = document.getElementById('close-add-doctor-to-clinic-modal');
   const doctorSearchResults = document.getElementById('doctor-search-results');
 
-  addClinicButton.addEventListener('click', () => {
+  addClinicButtonEl.addEventListener('click', () => {
     openClinicModal();
   });
 
@@ -886,6 +885,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+
   // ---------------------------
   // LOGI SYSTEMOWE
   // ---------------------------
@@ -903,6 +903,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('Błąd wczytywania logów systemowych:', error);
     }
   }
+
 
   // ---------------------------
   // KONFIGURACJA SYSTEMU
@@ -946,23 +947,259 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+
   // ---------------------------
   // ZARZĄDZANIE UPRAWNIENIAMI
   // ---------------------------
-  async function loadPermissions() {
+  // REFS do przycisków, modali i formularzy
+  const addPermissionButton = document.getElementById('add-permission-button');
+  const permissionModal = document.getElementById('permission-modal');
+  const closePermissionModalButton = document.getElementById('close-permission-modal');
+  const permissionForm = document.getElementById('permission-form');
+  const permissionIdField = document.getElementById('permission-id');
+  const permissionNameField = document.getElementById('permission-name');
+  const permissionDescField = document.getElementById('permission-desc');
+  const permissionModalTitle = document.getElementById('permission-modal-title');
+
+  const addPermissionGroupButton = document.getElementById('add-permission-group-button');
+  const permissionGroupModal = document.getElementById('permission-group-modal');
+  const closePermissionGroupModalButton = document.getElementById('close-permission-group-modal');
+  const permissionGroupForm = document.getElementById('permission-group-form');
+  const permissionGroupIdField = document.getElementById('permission-group-id');
+  const permissionGroupNameField = document.getElementById('permission-group-name');
+  const permissionGroupModalTitle = document.getElementById('permission-group-modal-title');
+  const permissionGroupPermissionsContainer = document.getElementById('permission-group-permissions-container');
+
+  // Obsługa kliknięcia "Dodaj Uprawnienie"
+  addPermissionButton.addEventListener('click', () => {
+    openPermissionModal();
+  });
+
+  // Obsługa kliknięcia "Dodaj Grupę"
+  addPermissionGroupButton.addEventListener('click', () => {
+    openPermissionGroupModal();
+  });
+
+  function openPermissionModal(permission = null) {
+    if (permission) {
+      permissionModalTitle.textContent = 'Edytuj Uprawnienie';
+      permissionIdField.value = permission.id;
+      permissionNameField.value = permission.name;
+      permissionDescField.value = permission.description || '';
+    } else {
+      permissionModalTitle.textContent = 'Dodaj Uprawnienie';
+      permissionForm.reset();
+      permissionIdField.value = '';
+    }
+    permissionModal.style.display = 'block';
+  }
+
+  function closePermissionModal() {
+    permissionModal.style.display = 'none';
+    permissionForm.reset();
+    permissionIdField.value = '';
+  }
+
+  if (closePermissionModalButton) {
+    closePermissionModalButton.addEventListener('click', closePermissionModal);
+  }
+
+  window.addEventListener('click', (event) => {
+    if (event.target === permissionModal) {
+      closePermissionModal();
+    }
+  });
+
+  // Obsługa submit w formularzu Uprawnienia
+  permissionForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const permId = permissionIdField.value;
+    const name = permissionNameField.value.trim();
+    const desc = permissionDescField.value.trim();
+
+    if (!name) {
+      alert('Nazwa uprawnienia jest wymagana.');
+      return;
+    }
+
     try {
-      const response = await fetch('/api/permissions');
-      if (response.ok) {
-        const perms = await response.json();
-        renderPermissions(perms);
+      let response;
+      if (permId) {
+        // Edycja istniejącego
+        response = await fetch(`/api/permissions/${permId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, description: desc }),
+        });
       } else {
-        alert('Błąd pobierania uprawnień.');
+        // Dodawanie nowego
+        response = await fetch('/api/permissions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, description: desc }),
+        });
+      }
+
+      if (response.ok) {
+        alert(permId ? 'Uprawnienie zaktualizowane.' : 'Dodano uprawnienie.');
+        closePermissionModal();
+        loadPermissions(); // odśwież listę
+      } else {
+        const errData = await response.json();
+        alert(`Błąd: ${errData.message}`);
       }
     } catch (error) {
-      console.error('Błąd pobierania uprawnień:', error);
+      console.error('Błąd zapisu uprawnienia:', error);
+      alert('Błąd zapisu uprawnienia.');
+    }
+  });
+
+  // Obsługa Gru py Uprawnień
+  function openPermissionGroupModal(group = null) {
+    if (group) {
+      permissionGroupModalTitle.textContent = 'Edytuj Grupę Uprawnień';
+      permissionGroupIdField.value = group.id;
+      permissionGroupNameField.value = group.name;
+      loadPermissionsForGroupForm(group.id); 
+    } else {
+      permissionGroupModalTitle.textContent = 'Dodaj Grupę Uprawnień';
+      permissionGroupForm.reset();
+      permissionGroupIdField.value = '';
+      loadPermissionsForGroupForm(null);
+    }
+    permissionGroupModal.style.display = 'block';
+  }
+
+  function closePermissionGroupModal() {
+    permissionGroupModal.style.display = 'none';
+    permissionGroupForm.reset();
+    permissionGroupIdField.value = '';
+  }
+
+  if (closePermissionGroupModalButton) {
+    closePermissionGroupModalButton.addEventListener('click', closePermissionGroupModal);
+  }
+
+  window.addEventListener('click', (event) => {
+    if (event.target === permissionGroupModal) {
+      closePermissionGroupModal();
+    }
+  });
+
+  permissionGroupForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const groupId = permissionGroupIdField.value;
+    const name = permissionGroupNameField.value.trim();
+    if (!name) {
+      alert('Nazwa grupy jest wymagana.');
+      return;
+    }
+    try {
+      let response;
+      if (groupId) {
+        // Edycja
+        response = await fetch(`/api/permission-groups/${groupId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name }),
+        });
+      } else {
+        // Dodawanie nowej
+        response = await fetch('/api/permission-groups', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name }),
+        });
+      }
+
+      if (response.ok) {
+        let updatedGroupId = groupId;
+        if (!groupId) {
+          const created = await response.json();
+          updatedGroupId = created.id;
+          alert('Dodano grupę uprawnień.');
+        } else {
+          alert('Grupa uprawnień zaktualizowana.');
+        }
+        // Zapis uprawnień w tej grupie
+        await savePermissionGroupPermissions(updatedGroupId);
+        closePermissionGroupModal();
+        loadPermissionGroups();
+      } else {
+        const errData = await response.json();
+        alert(`Błąd: ${errData.message}`);
+      }
+    } catch (error) {
+      console.error('Błąd zapisu grupy uprawnień:', error);
+      alert('Błąd zapisu grupy uprawnień.');
+    }
+  });
+
+  // Pobieranie wszystkich uprawnień i zaznaczanie tych, które dana grupa już ma
+  async function loadPermissionsForGroupForm(groupId) {
+    let assignedPerms = [];
+    if (groupId) {
+      // pobierz uprawnienia grupy
+      try {
+        const groupResp = await fetch(`/api/permission-groups/${groupId}`);
+        if (groupResp.ok) {
+          const groupData = await groupResp.json();
+          assignedPerms = groupData.permissions.map(p => p.id);
+        }
+      } catch (error) {
+        console.error('Błąd pobierania grupy:', error);
+      }
+    }
+    // pobierz wszystkie uprawnienia
+    try {
+      const resp = await fetch('/api/permissions');
+      if (resp.ok) {
+        const allPerms = await resp.json();
+        permissionGroupPermissionsContainer.innerHTML = '';
+        allPerms.forEach(perm => {
+          const label = document.createElement('label');
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.value = perm.id;
+          if (assignedPerms.includes(perm.id)) {
+            checkbox.checked = true;
+          }
+          label.appendChild(checkbox);
+          label.append(' ' + perm.name);
+          permissionGroupPermissionsContainer.appendChild(label);
+          permissionGroupPermissionsContainer.appendChild(document.createElement('br'));
+        });
+      } else {
+        alert('Błąd pobierania wszystkich uprawnień.');
+      }
+    } catch (error) {
+      console.error('Błąd pobierania wszystkich uprawnień:', error);
     }
   }
 
+  // Zapisywanie checklisty uprawnień w grupie
+  async function savePermissionGroupPermissions(groupId) {
+    const checkboxes = permissionGroupPermissionsContainer.querySelectorAll('input[type="checkbox"]');
+    const selectedPermissions = [];
+    checkboxes.forEach(ch => {
+      if (ch.checked) selectedPermissions.push(parseInt(ch.value));
+    });
+    try {
+      const resp = await fetch(`/api/permission-groups/${groupId}/permissions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ permissions: selectedPermissions })
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        alert(`Błąd zapisu uprawnień w grupie: ${err.message}`);
+      }
+    } catch (error) {
+      console.error('Błąd zapisu uprawnień w grupie:', error);
+    }
+  }
+
+  // Render uprawnień (po pobraniu)
   function renderPermissions(perms) {
     const permissionsList = document.getElementById('permissions-list');
     if (!perms || perms.length === 0) {
@@ -993,23 +1230,39 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     });
     permissionsList.innerHTML = tableHeader + tableRows;
-    // Obsługa edycji i usuwania uprawnień – analogicznie do userów
+
+    // Obsługa kliknięć w "Edytuj" / "Usuń"
+    document.querySelectorAll('.edit-permission-button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const perm = JSON.parse(e.target.getAttribute('data-perm'));
+        openPermissionModal(perm);
+      });
+    });
+
+    document.querySelectorAll('.delete-permission-button').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const permId = e.target.getAttribute('data-id');
+        if (confirm('Czy na pewno chcesz usunąć to uprawnienie?')) {
+          try {
+            const delResp = await fetch(`/api/permissions/${permId}`, {
+              method: 'DELETE'
+            });
+            if (delResp.ok) {
+              alert('Uprawnienie zostało usunięte.');
+              loadPermissions();
+            } else {
+              const errData = await delResp.json();
+              alert(`Błąd usuwania uprawnienia: ${errData.message}`);
+            }
+          } catch (error) {
+            console.error('Błąd usuwania uprawnienia:', error);
+          }
+        }
+      });
+    });
   }
 
-  async function loadPermissionGroups() {
-    try {
-      const response = await fetch('/api/permission-groups');
-      if (response.ok) {
-        const groups = await response.json();
-        renderPermissionGroups(groups);
-      } else {
-        alert('Błąd pobierania grup uprawnień.');
-      }
-    } catch (error) {
-      console.error('Błąd pobierania grup uprawnień:', error);
-    }
-  }
-
+  // Render grup (po pobraniu)
   function renderPermissionGroups(groups) {
     const permissionGroupsList = document.getElementById('permission-groups-list');
     if (!groups || groups.length === 0) {
@@ -1038,9 +1291,67 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     });
     permissionGroupsList.innerHTML = tableHeader + tableRows;
-    // Obsługa edycji i usuwania grup – analogicznie do userów
+
+    // Obsługa "Edytuj" / "Usuń"
+    document.querySelectorAll('.edit-permission-group-button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const groupData = JSON.parse(e.target.getAttribute('data-group'));
+        openPermissionGroupModal(groupData);
+      });
+    });
+
+    document.querySelectorAll('.delete-permission-group-button').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const groupId = e.target.getAttribute('data-id');
+        if (confirm('Czy na pewno chcesz usunąć tę grupę?')) {
+          try {
+            const delResp = await fetch(`/api/permission-groups/${groupId}`, {
+              method: 'DELETE'
+            });
+            if (delResp.ok) {
+              alert('Grupa uprawnień została usunięta.');
+              loadPermissionGroups();
+            } else {
+              const errData = await delResp.json();
+              alert(`Błąd usuwania grupy: ${errData.message}`);
+            }
+          } catch (error) {
+            console.error('Błąd usuwania grupy:', error);
+          }
+        }
+      });
+    });
   }
 
-  // Na samym końcu wczytujemy listę użytkowników
+  // Funkcje do załadowania uprawnień / grup
+  async function loadPermissions() {
+    try {
+      const response = await fetch('/api/permissions');
+      if (response.ok) {
+        const perms = await response.json();
+        renderPermissions(perms);
+      } else {
+        alert('Błąd pobierania uprawnień.');
+      }
+    } catch (error) {
+      console.error('Błąd pobierania uprawnień:', error);
+    }
+  }
+
+  async function loadPermissionGroups() {
+    try {
+      const response = await fetch('/api/permission-groups');
+      if (response.ok) {
+        const groups = await response.json();
+        renderPermissionGroups(groups);
+      } else {
+        alert('Błąd pobierania grup uprawnień.');
+      }
+    } catch (error) {
+      console.error('Błąd pobierania grup uprawnień:', error);
+    }
+  }
+
+  // Na końcu ładujemy listę użytkowników
   loadUsers();
 });
