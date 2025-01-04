@@ -6,15 +6,42 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
+  // -------------------------------------------
+  //  ZAKŁADKI (taby) i przypisane sekcje
+  // -------------------------------------------
   const manageUsersTab = document.getElementById('manage-users-tab');
   const systemLogsTab = document.getElementById('system-logs-tab');
   const systemConfigTab = document.getElementById('system-config-tab');
   const manageClinicsTab = document.getElementById('manage-clinics-tab');
+  // Nowy tab do zarządzania uprawnieniami:
+  const managePermissionsTab = document.getElementById('manage-permissions-tab');
 
   const manageUsersSection = document.getElementById('manage-users-section');
   const systemLogsSection = document.getElementById('system-logs-section');
   const systemConfigSection = document.getElementById('system-config-section');
   const manageClinicsSection = document.getElementById('manage-clinics-section');
+  // Nowa sekcja:
+  const managePermissionsSection = document.getElementById('manage-permissions-section');
+
+  function showSection(section) {
+    manageUsersSection.style.display = 'none';
+    systemLogsSection.style.display = 'none';
+    systemConfigSection.style.display = 'none';
+    manageClinicsSection.style.display = 'none';
+    managePermissionsSection.style.display = 'none';  // ukryj nową sekcję
+
+    if (section === 'manage-users') {
+      manageUsersSection.style.display = 'block';
+    } else if (section === 'system-logs') {
+      systemLogsSection.style.display = 'block';
+    } else if (section === 'system-config') {
+      systemConfigSection.style.display = 'block';
+    } else if (section === 'manage-clinics') {
+      manageClinicsSection.style.display = 'block';
+    } else if (section === 'manage-permissions') {
+      managePermissionsSection.style.display = 'block';
+    }
+  }
 
   manageUsersTab.addEventListener('click', (e) => {
     e.preventDefault();
@@ -39,25 +66,18 @@ document.addEventListener('DOMContentLoaded', () => {
     loadClinics();
   });
 
-  function showSection(section) {
-    manageUsersSection.style.display = 'none';
-    systemLogsSection.style.display = 'none';
-    systemConfigSection.style.display = 'none';
-    manageClinicsSection.style.display = 'none';
+  // Obsługa kliknięcia w nową zakładkę:
+  managePermissionsTab.addEventListener('click', (e) => {
+    e.preventDefault();
+    showSection('manage-permissions');
+    loadPermissions();
+    loadPermissionGroups();
+  });
 
-    if (section === 'manage-users') {
-      manageUsersSection.style.display = 'block';
-    } else if (section === 'system-logs') {
-      systemLogsSection.style.display = 'block';
-    } else if (section === 'system-config') {
-      systemConfigSection.style.display = 'block';
-    } else if (section === 'manage-clinics') {
-      manageClinicsSection.style.display = 'block';
-    }
-  }
-
+  // Domyślnie pokaż sekcję zarządzania użytkownikami
   showSection('manage-users');
 
+  // Przyciski górne (powrót do dashboardu, wylogowanie)
   const backButton = document.getElementById('back-to-dashboard');
   backButton.addEventListener('click', () => {
     window.location.href = 'dashboard.html';
@@ -70,7 +90,9 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.href = 'index.html';
   });
 
-  // Zarządzanie Użytkownikami
+  // -------------------------------------------
+  //  ZARZĄDZANIE UŻYTKOWNIKAMI
+  // -------------------------------------------
   const addUserButton = document.getElementById('add-user-button');
   const searchUserForm = document.getElementById('search-user-form');
   const resetSearchButton = document.getElementById('reset-search');
@@ -113,7 +135,6 @@ document.addEventListener('DOMContentLoaded', () => {
       userIdField.value = '';
       loadAllClinicsForUserForm([]);
     }
-
     userModal.style.display = 'block';
   }
 
@@ -150,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderUserList(users) {
-    if (users.length === 0) {
+    if (!users || users.length === 0) {
       userList.innerHTML = `
         <tr>
           <td colspan="5">Brak użytkowników do wyświetlenia.</td>
@@ -168,7 +189,6 @@ document.addEventListener('DOMContentLoaded', () => {
         <th>Akcje</th>
       </tr>
     `;
-
     let tableRows = '';
 
     users.forEach((user) => {
@@ -285,6 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
       role
     };
 
+    // Jeśli hasło podano i jest zgodne (przy dodawaniu nowego lub edycji)
     if (
       (!userId && password && passwordConfirm && password === passwordConfirm) ||
       (userId && password && passwordConfirm && password === passwordConfirm)
@@ -305,7 +326,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (userData.password) {
           putBody.password = userData.password;
         }
-
         response = await fetch(`/api/users/${userId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -329,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           alert('Dane użytkownika zostały zaktualizowane.');
         }
-
+        // Zapis widocznych poradni
         await saveUserVisibleClinics(newUserId);
         closeUserModal();
         loadUsers(currentUserSearchQuery);
@@ -409,6 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Resetowanie hasła
   const resetPasswordModal = document.getElementById('reset-password-modal');
   const closeResetPasswordModal = document.getElementById('close-reset-password-modal');
   const temporaryPasswordInput = document.getElementById('temporary-password');
@@ -436,14 +457,12 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Hasło nie może być puste.');
         return;
       }
-
       try {
         const response = await fetch(`/api/users/${id}/reset-password`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ temporaryPassword }),
         });
-
         if (response.ok) {
           alert('Hasło zostało zresetowane.');
           resetPasswordModal.style.display = 'none';
@@ -458,6 +477,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   };
 
+  // Na starcie ładuj listę użytkowników
+  loadUsers();
+
+  // -------------------------------------------
+  //  PODGLĄD LOGÓW SYSTEMOWYCH
+  // -------------------------------------------
   async function loadSystemLogs() {
     try {
       const response = await fetch('/api/system-logs');
@@ -473,6 +498,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // -------------------------------------------
+  //  KONFIGURACJA SYSTEMU
+  // -------------------------------------------
   const systemConfigForm = document.getElementById('system-config-form');
   systemConfigForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -481,15 +509,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const logLevel = document.getElementById('log-level').value;
 
     try {
-      // Uwaga: w Twoim kodzie jest fetch('/api/system-config', { method: 'POST', ... })
-      // ale w pliku app.js masz app.put('/api/system-config', ...)
-      // To może powodować błąd – lepiej użyć method: 'PUT':
       const response = await fetch('/api/system-config', {
-        method: 'PUT',
+        method: 'PUT', // w app.js mamy PUT
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ maintenanceMode, sessionTimeout, logLevel }),
       });
-
       if (response.ok) {
         alert('Konfiguracja systemu została zaktualizowana.');
       } else {
@@ -516,7 +540,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Zarządzanie Poradniami
+  // -------------------------------------------
+  //  ZARZĄDZANIE PORADNIAMI
+  // -------------------------------------------
   const addClinicButton = document.getElementById('add-clinic-button');
   const clinicList = document.getElementById('clinic-list');
   const clinicModal = document.getElementById('clinic-modal');
@@ -556,7 +582,6 @@ document.addEventListener('DOMContentLoaded', () => {
       clinicIdField.value = '';
       currentClinicId = null;
 
-      // Nie pokazujemy listy lekarzy ani przycisku gdy tworzymy nową poradnię
       assignedDoctorsTitle.style.display = 'none';
       assignedDoctorsList.style.display = 'none';
       addDoctorToClinicButton.style.display = 'none';
@@ -564,37 +589,6 @@ document.addEventListener('DOMContentLoaded', () => {
       assignedDoctorsList.innerHTML = '';
     }
     clinicModal.style.display = 'block';
-  }
-
-  async function loadAssignedDoctors(clinicId) {
-    try {
-      const response = await fetch(`/api/clinics/${clinicId}/doctors`);
-      if (response.ok) {
-        const doctors = await response.json();
-        renderAssignedDoctors(doctors);
-      } else {
-        assignedDoctorsList.innerHTML = '<li>Błąd podczas pobierania przypisanych lekarzy.</li>';
-      }
-    } catch (error) {
-      console.error('Błąd pobierania przypisanych lekarzy:', error);
-      assignedDoctorsList.innerHTML = '<li>Błąd podczas pobierania przypisanych lekarzy.</li>';
-    }
-  }
-
-  function renderAssignedDoctors(doctors) {
-    assignedDoctorsList.innerHTML = '';
-    if (doctors.length === 0) {
-      const li = document.createElement('li');
-      li.textContent = 'Brak przypisanych lekarzy.';
-      assignedDoctorsList.appendChild(li);
-      return;
-    }
-
-    doctors.forEach(doc => {
-      const li = document.createElement('li');
-      li.textContent = `${doc.firstName} ${doc.lastName}`;
-      assignedDoctorsList.appendChild(li);
-    });
   }
 
   function closeClinicModal() {
@@ -682,7 +676,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderClinicList(clinics) {
-    if (clinics.length === 0) {
+    if (!clinics || clinics.length === 0) {
       clinicList.innerHTML = `
         <tr>
           <td colspan="2">Brak poradni do wyświetlenia.</td>
@@ -697,7 +691,6 @@ document.addEventListener('DOMContentLoaded', () => {
         <th>Akcje</th>
       </tr>
     `;
-
     let tableRows = '';
 
     clinics.forEach((clinic) => {
@@ -729,7 +722,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`/api/clinics/${clinicId}`, {
               method: 'DELETE',
             });
-
             if (response.ok) {
               alert('Poradnia została usunięta.');
               loadClinics();
@@ -779,6 +771,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  async function loadAssignedDoctors(clinicId) {
+    try {
+      const response = await fetch(`/api/clinics/${clinicId}/doctors`);
+      if (response.ok) {
+        const doctors = await response.json();
+        renderAssignedDoctors(doctors);
+      } else {
+        assignedDoctorsList.innerHTML = '<li>Błąd podczas pobierania przypisanych lekarzy.</li>';
+      }
+    } catch (error) {
+      console.error('Błąd pobierania przypisanych lekarzy:', error);
+      assignedDoctorsList.innerHTML = '<li>Błąd podczas pobierania przypisanych lekarzy.</li>';
+    }
+  }
+
+  function renderAssignedDoctors(doctors) {
+    assignedDoctorsList.innerHTML = '';
+    if (!doctors || doctors.length === 0) {
+      const li = document.createElement('li');
+      li.textContent = 'Brak przypisanych lekarzy.';
+      assignedDoctorsList.appendChild(li);
+      return;
+    }
+    doctors.forEach(doc => {
+      const li = document.createElement('li');
+      li.textContent = `${doc.firstName} ${doc.lastName}`;
+      assignedDoctorsList.appendChild(li);
+    });
+  }
+
   async function loadAssignedDoctorsForUpdate(clinicId) {
     const response = await fetch(`/api/clinics/${clinicId}/doctors`);
     if (response.ok) {
@@ -790,13 +812,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderDoctorSearchResults(doctors) {
     doctorSearchResults.innerHTML = '';
-    if (doctors.length === 0) {
+    if (!doctors || doctors.length === 0) {
       const li = document.createElement('li');
       li.textContent = 'Brak lekarzy do wyświetlenia.';
       doctorSearchResults.appendChild(li);
       return;
     }
-
     doctors.forEach(doc => {
       const li = document.createElement('li');
       li.textContent = `${doc.firstName} ${doc.lastName}`;
@@ -813,11 +834,9 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('Najpierw wybierz poradnię.');
       return;
     }
-
     let assignedDoctors = await loadAssignedDoctorsForUpdate(currentClinicId);
     const assignedDoctorIds = assignedDoctors.map(d => d.id);
 
-    // Dodaj nowego lekarza jeśli nie ma go na liście
     if (!assignedDoctorIds.includes(doctorId)) {
       assignedDoctorIds.push(doctorId);
     }
@@ -828,7 +847,6 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ doctors: assignedDoctorIds })
       });
-
       if (response.ok) {
         alert('Lekarz został dodany do poradni.');
         addDoctorToClinicModal.style.display = 'none';
@@ -844,5 +862,401 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  loadUsers();
+  // -------------------------------------------
+  //  NOWA SEKCJA: ZARZĄDZANIE UPRAWNIENIAMI
+  // -------------------------------------------
+  const permissionsList = document.getElementById('permissions-list');
+  const permissionGroupsList = document.getElementById('permission-groups-list');
+  const addPermissionButton = document.getElementById('add-permission-button');
+  const addPermissionGroupButton = document.getElementById('add-permission-group-button');
+
+  // Modale uprawnień:
+  const permissionModal = document.getElementById('permission-modal');
+  const closePermissionModalButton = document.getElementById('close-permission-modal');
+  const permissionForm = document.getElementById('permission-form');
+  const permissionIdField = document.getElementById('permission-id');
+  const permissionNameField = document.getElementById('permission-name');
+  const permissionDescField = document.getElementById('permission-desc');
+  const permissionModalTitle = document.getElementById('permission-modal-title');
+
+  // Modale grup:
+  const permissionGroupModal = document.getElementById('permission-group-modal');
+  const closePermissionGroupModalButton = document.getElementById('close-permission-group-modal');
+  const permissionGroupForm = document.getElementById('permission-group-form');
+  const permissionGroupIdField = document.getElementById('permission-group-id');
+  const permissionGroupNameField = document.getElementById('permission-group-name');
+  const permissionGroupModalTitle = document.getElementById('permission-group-modal-title');
+  const permissionGroupPermissionsContainer = document.getElementById('permission-group-permissions-container');
+
+  addPermissionButton.addEventListener('click', () => {
+    openPermissionModal();
+  });
+  addPermissionGroupButton.addEventListener('click', () => {
+    openPermissionGroupModal();
+  });
+
+  // Funkcje zarządzania uprawnieniami
+  function openPermissionModal(permission = null) {
+    if (permission) {
+      permissionModalTitle.textContent = 'Edytuj Uprawnienie';
+      permissionIdField.value = permission.id;
+      permissionNameField.value = permission.name;
+      permissionDescField.value = permission.description || '';
+    } else {
+      permissionModalTitle.textContent = 'Dodaj Uprawnienie';
+      permissionForm.reset();
+      permissionIdField.value = '';
+    }
+    permissionModal.style.display = 'block';
+  }
+  function closePermissionModal() {
+    permissionModal.style.display = 'none';
+    permissionForm.reset();
+    permissionIdField.value = '';
+  }
+  closePermissionModalButton.addEventListener('click', closePermissionModal);
+  window.addEventListener('click', (event) => {
+    if (event.target === permissionModal) {
+      closePermissionModal();
+    }
+  });
+
+  permissionForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const permId = permissionIdField.value;
+    const name = permissionNameField.value.trim();
+    const desc = permissionDescField.value.trim();
+
+    if (!name) {
+      alert('Nazwa uprawnienia jest wymagana.');
+      return;
+    }
+
+    try {
+      let response;
+      if (permId) {
+        // Aktualizacja
+        response = await fetch(`/api/permissions/${permId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, description: desc }),
+        });
+      } else {
+        // Dodawanie
+        response = await fetch('/api/permissions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, description: desc }),
+        });
+      }
+
+      if (response.ok) {
+        alert(permId ? 'Uprawnienie zaktualizowane.' : 'Dodano uprawnienie.');
+        closePermissionModal();
+        loadPermissions();
+      } else {
+        const errData = await response.json();
+        alert(`Błąd: ${errData.message}`);
+      }
+    } catch (error) {
+      console.error('Błąd zapisu uprawnienia:', error);
+      alert('Błąd zapisu uprawnienia.');
+    }
+  });
+
+  async function loadPermissions() {
+    try {
+      const response = await fetch('/api/permissions');
+      if (response.ok) {
+        const perms = await response.json();
+        renderPermissions(perms);
+      } else {
+        alert('Błąd pobierania uprawnień.');
+      }
+    } catch (error) {
+      console.error('Błąd pobierania uprawnień:', error);
+    }
+  }
+
+  function renderPermissions(perms) {
+    if (!perms || perms.length === 0) {
+      permissionsList.innerHTML = `
+        <tr><td colspan="3">Brak uprawnień do wyświetlenia.</td></tr>
+      `;
+      return;
+    }
+
+    let tableHeader = `
+      <tr>
+        <th>Nazwa</th>
+        <th>Opis</th>
+        <th>Akcje</th>
+      </tr>
+    `;
+    let tableRows = '';
+
+    perms.forEach((p) => {
+      tableRows += `
+        <tr>
+          <td>${p.name}</td>
+          <td>${p.description || ''}</td>
+          <td>
+            <button class="edit-permission-button" data-perm='${JSON.stringify(p)}'>Edytuj</button>
+            <button class="delete-permission-button" data-id="${p.id}">Usuń</button>
+          </td>
+        </tr>
+      `;
+    });
+    permissionsList.innerHTML = tableHeader + tableRows;
+
+    document.querySelectorAll('.edit-permission-button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const perm = JSON.parse(e.target.getAttribute('data-perm'));
+        openPermissionModal(perm);
+      });
+    });
+
+    document.querySelectorAll('.delete-permission-button').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const permId = e.target.getAttribute('data-id');
+        if (confirm('Czy na pewno chcesz usunąć to uprawnienie?')) {
+          try {
+            const delResp = await fetch(`/api/permissions/${permId}`, {
+              method: 'DELETE'
+            });
+            if (delResp.ok) {
+              alert('Usunięto uprawnienie.');
+              loadPermissions();
+            } else {
+              const errData = await delResp.json();
+              alert(`Błąd usuwania: ${errData.message}`);
+            }
+          } catch (error) {
+            console.error('Błąd usuwania uprawnienia:', error);
+          }
+        }
+      });
+    });
+  }
+
+  // Funkcje zarządzania grupami
+  function openPermissionGroupModal(group = null) {
+    if (group) {
+      permissionGroupModalTitle.textContent = 'Edytuj Grupę Uprawnień';
+      permissionGroupIdField.value = group.id;
+      permissionGroupNameField.value = group.name;
+      loadAllPermissionsForGroupForm(group.id); // aby zaznaczyć perms
+    } else {
+      permissionGroupModalTitle.textContent = 'Dodaj Grupę Uprawnień';
+      permissionGroupForm.reset();
+      permissionGroupIdField.value = '';
+      loadAllPermissionsForGroupForm(null); // pusta
+    }
+    permissionGroupModal.style.display = 'block';
+  }
+  function closePermissionGroupModal() {
+    permissionGroupModal.style.display = 'none';
+    permissionGroupForm.reset();
+    permissionGroupIdField.value = '';
+  }
+  closePermissionGroupModalButton.addEventListener('click', closePermissionGroupModal);
+  window.addEventListener('click', (event) => {
+    if (event.target === permissionGroupModal) {
+      closePermissionGroupModal();
+    }
+  });
+
+  permissionGroupForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const groupId = permissionGroupIdField.value;
+    const name = permissionGroupNameField.value.trim();
+
+    if (!name) {
+      alert('Nazwa grupy jest wymagana.');
+      return;
+    }
+    try {
+      let response;
+      if (groupId) {
+        // Edycja
+        response = await fetch(`/api/permission-groups/${groupId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name }),
+        });
+      } else {
+        // Dodawanie
+        response = await fetch('/api/permission-groups', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name }),
+        });
+      }
+
+      if (response.ok) {
+        let updatedGroupId = groupId;
+        if (!groupId) {
+          const created = await response.json();
+          updatedGroupId = created.id;
+          alert('Dodano grupę uprawnień.');
+        } else {
+          alert('Grupa uprawnień zaktualizowana.');
+        }
+        await savePermissionGroupPermissions(updatedGroupId);
+        closePermissionGroupModal();
+        loadPermissionGroups();
+      } else {
+        const errData = await response.json();
+        alert(`Błąd: ${errData.message}`);
+      }
+    } catch (error) {
+      console.error('Błąd zapisu grupy uprawnień:', error);
+      alert('Błąd zapisu grupy uprawnień.');
+    }
+  });
+
+  async function loadPermissionGroups() {
+    try {
+      const response = await fetch('/api/permission-groups');
+      if (response.ok) {
+        const groups = await response.json();
+        renderPermissionGroups(groups);
+      } else {
+        alert('Błąd pobierania grup uprawnień.');
+      }
+    } catch (error) {
+      console.error('Błąd pobierania grup uprawnień:', error);
+    }
+  }
+
+  function renderPermissionGroups(groups) {
+    if (!groups || groups.length === 0) {
+      permissionGroupsList.innerHTML = `
+        <tr><td colspan="2">Brak grup do wyświetlenia.</td></tr>
+      `;
+      return;
+    }
+
+    let tableHeader = `
+      <tr>
+        <th>Nazwa Grupy</th>
+        <th>Akcje</th>
+      </tr>
+    `;
+    let tableRows = '';
+
+    groups.forEach((g) => {
+      tableRows += `
+        <tr>
+          <td>${g.name}</td>
+          <td>
+            <button class="edit-permission-group-button" data-group='${JSON.stringify(g)}'>Edytuj</button>
+            <button class="delete-permission-group-button" data-id="${g.id}">Usuń</button>
+          </td>
+        </tr>
+      `;
+    });
+    permissionGroupsList.innerHTML = tableHeader + tableRows;
+
+    document.querySelectorAll('.edit-permission-group-button').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const group = JSON.parse(e.target.getAttribute('data-group'));
+        try {
+          const resp = await fetch(`/api/permission-groups/${group.id}`);
+          if (resp.ok) {
+            const groupDetails = await resp.json();
+            openPermissionGroupModal(groupDetails);
+          } else {
+            alert('Błąd pobierania szczegółów grupy uprawnień.');
+          }
+        } catch (error) {
+          console.error('Błąd pobierania szczegółów grupy:', error);
+        }
+      });
+    });
+
+    document.querySelectorAll('.delete-permission-group-button').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const groupId = e.target.getAttribute('data-id');
+        if (confirm('Czy na pewno chcesz usunąć tę grupę uprawnień?')) {
+          try {
+            const delResp = await fetch(`/api/permission-groups/${groupId}`, {
+              method: 'DELETE'
+            });
+            if (delResp.ok) {
+              alert('Usunięto grupę uprawnień.');
+              loadPermissionGroups();
+            } else {
+              const errData = await delResp.json();
+              alert(`Błąd usuwania: ${errData.message}`);
+            }
+          } catch (error) {
+            console.error('Błąd usuwania grupy uprawnień:', error);
+          }
+        }
+      });
+    });
+  }
+
+  async function loadAllPermissionsForGroupForm(groupId) {
+    let assignedPerms = [];
+    if (groupId) {
+      // pobieramy szczegółowe dane o grupie
+      try {
+        const resp = await fetch(`/api/permission-groups/${groupId}`);
+        if (resp.ok) {
+          const groupDetails = await resp.json();
+          assignedPerms = groupDetails.permissions.map(p => p.id);
+        }
+      } catch (error) {
+        console.error('Błąd pobierania szczegółów grupy:', error);
+      }
+    }
+    try {
+      const resp = await fetch('/api/permissions');
+      if (resp.ok) {
+        const allPerms = await resp.json();
+        permissionGroupPermissionsContainer.innerHTML = '';
+        allPerms.forEach((perm) => {
+          const label = document.createElement('label');
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.value = perm.id;
+          if (assignedPerms.includes(perm.id)) {
+            checkbox.checked = true;
+          }
+          label.appendChild(checkbox);
+          label.append(' ' + perm.name);
+          permissionGroupPermissionsContainer.appendChild(label);
+          permissionGroupPermissionsContainer.appendChild(document.createElement('br'));
+        });
+      } else {
+        alert('Błąd pobierania wszystkich uprawnień.');
+      }
+    } catch (error) {
+      console.error('Błąd pobierania wszystkich uprawnień:', error);
+    }
+  }
+
+  async function savePermissionGroupPermissions(groupId) {
+    const checkboxes = permissionGroupPermissionsContainer.querySelectorAll('input[type="checkbox"]');
+    const selectedPermissions = [];
+    checkboxes.forEach(ch => {
+      if (ch.checked) selectedPermissions.push(parseInt(ch.value));
+    });
+    try {
+      const resp = await fetch(`/api/permission-groups/${groupId}/permissions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ permissions: selectedPermissions })
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        alert(`Błąd zapisu uprawnień w grupie: ${err.message}`);
+      }
+    } catch (error) {
+      console.error('Błąd zapisu uprawnień w grupie:', error);
+    }
+  }
+
 });
