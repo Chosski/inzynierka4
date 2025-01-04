@@ -32,7 +32,6 @@
         <li><a href="#" id="system-logs-tab">Podgląd Logów Systemowych</a></li>
         <li><a href="#" id="system-config-tab">Konfiguracja Systemu</a></li>
         <li><a href="#" id="manage-clinics-tab">Zarządzanie Poradniami</a></li>
-        <!-- Nowa zakładka – Zarządzanie Uprawnieniami -->
         <li><a href="#" id="manage-permissions-tab">Zarządzanie Uprawnieniami</a></li>
       </ul>
     </nav>
@@ -64,57 +63,106 @@
         <!-- Lista użytkowników (wypełniana dynamicznie) -->
       </table>
 
-      <!-- Modal Dodawania/Edycji Użytkownika -->
-      <div id="user-modal" class="modal">
+      <!-- Modal Dodawania Użytkownika -->
+      <div id="add-user-modal" class="modal">
         <div class="modal-content">
-          <span class="close-button" id="close-user-modal">&times;</span>
-          <h2 id="user-modal-title">Dodaj Użytkownika</h2>
+          <span class="close-button" id="close-add-user-modal">&times;</span>
+          <h2 id="add-user-modal-title">Dodaj Użytkownika</h2>
 
-          <form id="user-form">
-            <input type="hidden" id="user-id" value="">
+          <form id="add-user-form">
+            <!-- ukryte pole ID niepotrzebne, bo to NOWY user -->
             <div class="form-group">
-              <label for="user-login">Login:</label>
-              <input type="text" id="user-login" required>
+              <label for="add-user-login">Login:</label>
+              <input type="text" id="add-user-login" required>
             </div>
             <div class="form-group">
-              <label for="user-firstName">Imię:</label>
-              <input type="text" id="user-firstName" required>
+              <label for="add-user-firstName">Imię:</label>
+              <input type="text" id="add-user-firstName" required>
             </div>
             <div class="form-group">
-              <label for="user-lastName">Nazwisko:</label>
-              <input type="text" id="user-lastName" required>
+              <label for="add-user-lastName">Nazwisko:</label>
+              <input type="text" id="add-user-lastName" required>
             </div>
             <div class="form-group">
-              <label for="user-pesel">PESEL:</label>
-              <input type="text" id="user-pesel" required pattern="\d{11}">
+              <label for="add-user-pesel">PESEL:</label>
+              <input type="text" id="add-user-pesel" required pattern="\d{11}">
             </div>
 
-            <!-- Nowe pole: Grupa Uprawnień -->
+            <!-- Grupa Uprawnień -->
             <div class="form-group">
-              <label for="user-permission-group">Grupa Uprawnień:</label>
-              <select id="user-permission-group">
-                <!-- Wypełniany dynamicznie z /api/permission-groups -->
+              <label for="add-user-permission-group">Grupa Uprawnień:</label>
+              <select id="add-user-permission-group">
+                <!-- Wypełniany dynamicznie -->
                 <option value="">--Wybierz--</option>
               </select>
             </div>
 
+            <!-- Hasło -->
             <div class="form-group">
-              <label for="user-password">Hasło (opcjonalne przy edycji):</label>
-              <input type="password" id="user-password">
+              <label for="add-user-password">Hasło:</label>
+              <input type="password" id="add-user-password" required>
             </div>
             <div class="form-group">
-              <label for="user-password-confirm">Potwierdź Hasło:</label>
-              <input type="password" id="user-password-confirm">
+              <label for="add-user-password-confirm">Potwierdź Hasło:</label>
+              <input type="password" id="add-user-password-confirm" required>
             </div>
 
+            <!-- Widoczne poradnie (checkboxy) -->
             <div class="form-group">
-              <label>Widoczne Poradnie (checkboxy):</label>
-              <div id="user-clinics-container">
-                <!-- Lista poradni jako checkboxy (wypełniana dynamicznie) -->
+              <label>Widoczne Poradnie:</label>
+              <div id="add-user-clinics-container">
+                <!-- wypełniane dynamicznie -->
               </div>
             </div>
 
-            <button type="submit" id="save-user-button">Zapisz</button>
+            <button type="submit" id="save-new-user-button">Zapisz</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Modal Edycji Użytkownika -->
+      <div id="edit-user-modal" class="modal">
+        <div class="modal-content">
+          <span class="close-button" id="close-edit-user-modal">&times;</span>
+          <h2 id="edit-user-modal-title">Edycja Użytkownika</h2>
+
+          <form id="edit-user-form">
+            <input type="hidden" id="edit-user-id" value="">
+            <div class="form-group">
+              <label for="edit-user-login">Login:</label>
+              <input type="text" id="edit-user-login" disabled>
+            </div>
+            <div class="form-group">
+              <label for="edit-user-firstName">Imię:</label>
+              <input type="text" id="edit-user-firstName" required>
+            </div>
+            <div class="form-group">
+              <label for="edit-user-lastName">Nazwisko:</label>
+              <input type="text" id="edit-user-lastName" required>
+            </div>
+            <div class="form-group">
+              <label for="edit-user-pesel">PESEL:</label>
+              <input type="text" id="edit-user-pesel" required pattern="\d{11}">
+            </div>
+
+            <!-- Tylko grupa uprawnień -->
+            <div class="form-group">
+              <label for="edit-user-permission-group">Grupa Uprawnień:</label>
+              <select id="edit-user-permission-group">
+                <!-- Wypełniany dynamicznie -->
+                <option value="">--Wybierz--</option>
+              </select>
+            </div>
+
+            <!-- Widoczne poradnie -->
+            <div class="form-group">
+              <label>Widoczne Poradnie:</label>
+              <div id="edit-user-clinics-container">
+                <!-- wypełniane dynamicznie -->
+              </div>
+            </div>
+
+            <button type="submit" id="save-edited-user-button">Zapisz Zmiany</button>
           </form>
         </div>
       </div>
