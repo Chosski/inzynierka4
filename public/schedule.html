@@ -10,7 +10,7 @@
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/locales-all.min.js"></script>
 
-  <!-- SKRYPT weryfikujący dostęp do grupy "reception" -->
+  <!-- SKRYPT weryfikujący dostęp do grupy 'reception' LUB 'admin' -->
   <script>
     (function() {
       const userId = localStorage.getItem('userId');
@@ -29,12 +29,11 @@
         })
         .then(data => {
           const groups = data.groups || [];
-          // Sprawdzamy, czy user jest w grupie "reception"
-          const isReceptionOrAdmin = groups.some(g => g.name === 'reception' || g.name === 'admin');
-if (!isReceptionOrAdmin) {
-  alert('Brak dostępu do Ewidencji Pacjentów.');
-  window.location.href = 'dashboard.html';
-}
+          // Sprawdzamy, czy user ma 'reception' LUB 'admin'
+          const allowed = groups.some(g => g.name === 'reception' || g.name === 'admin');
+          if (!allowed) {
+            alert('Brak dostępu do Terminarza Rejestracji.');
+            window.location.href = 'dashboard.html';
           }
         })
         .catch(err => {
