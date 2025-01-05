@@ -5,7 +5,7 @@
   <title>Ewidencja Pacjentów</title>
   <link rel="stylesheet" href="styles.css">
 
-  <!-- SKRYPT weryfikujący dostęp do grupy "reception" -->
+  <!-- SKRYPT weryfikujący dostęp do grupy 'reception' LUB 'admin' -->
   <script>
     (function() {
       const userId = localStorage.getItem('userId');
@@ -24,11 +24,11 @@
         })
         .then(data => {
           const groups = data.groups || [];
-          // Sprawdzamy, czy user jest w grupie "reception"
-          const isReceptionOrAdmin = groups.some(g => g.name === 'reception' || g.name === 'admin');
-if (!isReceptionOrAdmin) {
-  alert('Brak dostępu do Ewidencji Pacjentów.');
-  window.location.href = 'dashboard.html';
+          // Sprawdzamy, czy user ma 'reception' LUB 'admin'
+          const allowed = groups.some(g => g.name === 'reception' || g.name === 'admin');
+          if (!allowed) {
+            alert('Brak dostępu do Ewidencji Pacjentów.');
+            window.location.href = 'dashboard.html';
           }
         })
         .catch(err => {
@@ -38,7 +38,6 @@ if (!isReceptionOrAdmin) {
         });
     })();
   </script>
-
 </head>
 <body>
   <header>
@@ -73,7 +72,8 @@ if (!isReceptionOrAdmin) {
       <span class="close-button" id="close-patient-modal">&times;</span>
       <h2 id="patient-modal-title">Dodaj Pacjenta</h2>
       <form id="patient-form">
-        <!-- (Reszta formularza: imię, nazwisko, pesel, adresy, itd.) -->
+        <input type="hidden" id="patient-id" value="">
+        <!-- (pozostałe pola: imię, nazwisko, pesel, adresy, itd.) -->
       </form>
     </div>
   </div>
