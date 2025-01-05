@@ -10,7 +10,7 @@
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/locales-all.min.js"></script>
 
-  <!-- SKRYPT weryfikujący, czy user ma grupę "doctor" -->
+  <!-- SKRYPT weryfikujący, czy user jest w grupie 'doctor' LUB 'admin' -->
   <script>
     (function() {
       const userId = localStorage.getItem('userId');
@@ -29,9 +29,9 @@
         })
         .then(data => {
           const groups = data.groups || [];
-          // Sprawdzamy, czy user jest w grupie "doctor"
-          const isDoctor = groups.some(g => g.name === 'doctor');
-          if (!isDoctor) {
+          // Sprawdzamy, czy user ma 'doctor' LUB 'admin'
+          const allowed = groups.some(g => g.name === 'doctor' || g.name === 'admin');
+          if (!allowed) {
             alert('Brak dostępu do Terminarza Lekarza.');
             window.location.href = 'dashboard.html';
           }
@@ -54,6 +54,7 @@
       <button id="logout-button">Wyloguj się</button>
     </div>
   </header>
+
   <main>
     <div class="filters">
       <label for="clinic-select">Poradnia:</label>
