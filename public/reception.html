@@ -5,7 +5,7 @@
   <title>Ewidencja Pacjentów</title>
   <link rel="stylesheet" href="styles.css">
 
-  <!-- SKRYPT weryfikujący dostęp do grupy 'reception' LUB 'admin' -->
+  <!-- Skrypt weryfikujący dostęp do grupy 'reception' LUB 'admin' -->
   <script>
     (function() {
       const userId = localStorage.getItem('userId');
@@ -47,9 +47,12 @@
       <button id="logout-button">Wyloguj się</button>
     </div>
   </header>
+
   <main>
     <div class="controls">
       <button id="add-patient-button">Dodaj Pacjenta</button>
+
+      <!-- Wyszukiwanie -->
       <form id="search-patient-form">
         <select id="search-type">
           <option value="firstName">Imię</option>
@@ -61,23 +64,109 @@
         <button type="button" id="reset-search">Resetuj</button>
       </form>
     </div>
+
+    <!-- Tabela pacjentów -->
     <table id="patient-list">
-      <!-- Lista pacjentów będzie generowana dynamicznie przez reception.js -->
+      <!-- Lista pacjentów generowana dynamicznie przez reception.js -->
     </table>
   </main>
   
-  <!-- Modal do dodawania/edycji pacjenta -->
-  <div id="patient-modal" class="modal">
+  <!-- Modal Dodawania/Edycji Pacjenta -->
+  <div id="patient-modal" class="modal" style="display:none;">
     <div class="modal-content">
       <span class="close-button" id="close-patient-modal">&times;</span>
       <h2 id="patient-modal-title">Dodaj Pacjenta</h2>
       <form id="patient-form">
         <input type="hidden" id="patient-id" value="">
-        <!-- (pozostałe pola: imię, nazwisko, pesel, adresy, itd.) -->
+
+        <!-- Dane główne pacjenta -->
+        <div class="form-group">
+          <label for="patient-firstName">Imię:</label>
+          <input type="text" id="patient-firstName" required>
+        </div>
+        <div class="form-group">
+          <label for="patient-lastName">Nazwisko:</label>
+          <input type="text" id="patient-lastName" required>
+        </div>
+        <div class="form-group">
+          <label for="patient-pesel">PESEL:</label>
+          <input type="text" id="patient-pesel" required pattern="\d{11}">
+        </div>
+        <div class="form-group">
+          <label for="patient-gender">Płeć:</label>
+          <select id="patient-gender" required>
+            <!-- Wypełniane dynamicznie w reception.js z /api/genders -->
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="patient-nationality">Narodowość:</label>
+          <select id="patient-nationality" required>
+            <!-- Wypełniane dynamicznie w reception.js z /api/countries -->
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="patient-phone">Telefon:</label>
+          <input type="text" id="patient-phone">
+        </div>
+
+        <h3>Adres Zamieszkania</h3>
+        <div class="form-group">
+          <label for="residence-country">Kraj:</label>
+          <input type="text" id="residence-country" required>
+        </div>
+        <div class="form-group">
+          <label for="residence-city">Miejscowość:</label>
+          <input type="text" id="residence-city" required>
+        </div>
+        <div class="form-group">
+          <label for="residence-postal_code">Kod pocztowy:</label>
+          <input type="text" id="residence-postal_code" required>
+        </div>
+        <div class="form-group">
+          <label for="residence-street">Ulica:</label>
+          <input type="text" id="residence-street" required>
+        </div>
+        <div class="form-group">
+          <label for="residence-house_number">Nr domu:</label>
+          <input type="text" id="residence-house_number" required>
+        </div>
+        <div class="form-group">
+          <label for="residence-apartment_number">Nr mieszkania (opcjonalnie):</label>
+          <input type="text" id="residence-apartment_number">
+        </div>
+
+        <h3>Adres Zameldowania</h3>
+        <div class="form-group">
+          <label for="registration-country">Kraj:</label>
+          <input type="text" id="registration-country" required>
+        </div>
+        <div class="form-group">
+          <label for="registration-city">Miejscowość:</label>
+          <input type="text" id="registration-city" required>
+        </div>
+        <div class="form-group">
+          <label for="registration-postal_code">Kod pocztowy:</label>
+          <input type="text" id="registration-postal_code" required>
+        </div>
+        <div class="form-group">
+          <label for="registration-street">Ulica:</label>
+          <input type="text" id="registration-street" required>
+        </div>
+        <div class="form-group">
+          <label for="registration-house_number">Nr domu:</label>
+          <input type="text" id="registration-house_number" required>
+        </div>
+        <div class="form-group">
+          <label for="registration-apartment_number">Nr mieszkania (opcjonalnie):</label>
+          <input type="text" id="registration-apartment_number">
+        </div>
+
+        <button type="submit" id="save-patient-button">Zapisz</button>
       </form>
     </div>
   </div>
-  
+
+  <!-- Skrypt główny obsługujący ewidencję pacjentów -->
   <script src="src/reception.js" defer></script>
 </body>
 </html>
