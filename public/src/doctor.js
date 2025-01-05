@@ -1,15 +1,8 @@
 // doctor.js
 document.addEventListener('DOMContentLoaded', () => {
-  // Tutaj sprawdzenie może być opcjonalne, bo już jest w doctor.html, ale można je zostawić
-  const userRole = localStorage.getItem('userRole');
-  const userId = localStorage.getItem('userId');
+  
 
-  // Sprawdzenie uprawnień użytkownika (opcjonalne, bo sprawdzamy już w HTML)
-  if (userRole !== 'doctor') {
-    alert('Brak dostępu do tej strony.');
-    window.location.href = 'dashboard.html';
-    return;
-  }
+  
 
   if (!userId) {
     alert('Brak ID lekarza. Zaloguj się ponownie.');
