@@ -4,15 +4,43 @@
   <meta charset="UTF-8">
   <title>Panel Administratora</title>
   <link rel="stylesheet" href="styles.css">
+  <!-- Twój skrypt logiki admin (zarządzanie użytkownikami, klinikami, itp.) -->
   <script src="src/admin.js" defer></script>
 
+  <!-- Skrypt weryfikujący przynależność do grupy "admin" -->
   <script>
     (function() {
       const userId = localStorage.getItem('userId');
       if (!userId) {
         alert('Musisz być zalogowany, aby uzyskać dostęp do tej strony.');
         window.location.href = 'index.html';
+        return;
       }
+
+      // Wywołujemy endpoint sprawdzający uprawnienia i grupy
+      fetch(`/api/users/${userId}/all-permissions`)
+        .then(resp => {
+          if (!resp.ok) {
+            throw new Error('Błąd sprawdzania uprawnień.');
+          }
+          return resp.json();
+        })
+        .then(data => {
+          // `data.groups` to tablica grup, np. [{ id:1, name:'admin' }, ...]
+          const userGroups = data.groups || [];
+          // Sprawdzamy, czy user ma grupę o nazwie 'admin'
+          const isAdmin = userGroups.some(g => g.name === 'admin');
+          if (!isAdmin) {
+            alert('Brak dostępu do Panelu Administratora.');
+            window.location.href = 'dashboard.html';
+          }
+          // Jeśli jest admin – user zostaje
+        })
+        .catch(err => {
+          console.error('Błąd weryfikacji uprawnień:', err);
+          alert('Błąd sprawdzania uprawnień.');
+          window.location.href = 'dashboard.html';
+        });
     })();
   </script>
 </head>
@@ -24,7 +52,6 @@
       <button id="logout-button">Wyloguj się</button>
     </div>
   </header>
-
   <main>
     <nav>
       <ul>
@@ -107,7 +134,7 @@
               <input type="password" id="add-user-password-confirm" required>
             </div>
 
-            <!-- Widoczne poradnie (checkboxy) -->
+            <!-- Widoczne Poradnie (checkboxy) -->
             <div class="form-group">
               <label>Widoczne Poradnie:</label>
               <div id="add-user-clinics-container">
@@ -145,7 +172,7 @@
               <input type="text" id="edit-user-pesel" required pattern="\d{11}">
             </div>
 
-            <!-- Tylko grupa uprawnień -->
+            <!-- Grupa Uprawnień (bez role) -->
             <div class="form-group">
               <label for="edit-user-permission-group">Grupa Uprawnień:</label>
               <select id="edit-user-permission-group">
@@ -154,7 +181,7 @@
               </select>
             </div>
 
-            <!-- Widoczne poradnie -->
+            <!-- Widoczne Poradnie (checkboxy) -->
             <div class="form-group">
               <label>Widoczne Poradnie:</label>
               <div id="edit-user-clinics-container">
@@ -181,6 +208,7 @@
           </form>
         </div>
       </div>
+
     </section>
 
     <!-- Sekcja Zarządzania Poradniami -->
