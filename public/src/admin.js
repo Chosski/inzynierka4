@@ -1,10 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const userRole = localStorage.getItem('userRole');
-  if (userRole !== 'admin') {
-    alert('Brak dostępu do tej strony.');
-    window.location.href = 'dashboard.html';
-    return;
-  }
+ 
 
   // ---------------------------
   // Sekcje / Taby
