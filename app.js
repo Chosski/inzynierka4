@@ -684,10 +684,33 @@ app.post('/api/patients', async (req, res) => {
 app.get('/api/patients', async (req, res) => {
   const { search } = req.query;
   let query = `
-    SELECT p.*, g.name AS genderName, c.name AS nationalityName
+    SELECT
+      p.id,
+      p.firstName,
+      p.lastName,
+      p.pesel,
+      p.gender_id,
+      p.nationality_id,
+      p.phone,
+      g.name AS genderName,
+      c.name AS nationalityName,
+      adrRes.country AS resCountry,
+      adrRes.city AS resCity,
+      adrRes.postal_code AS resPostalCode,
+      adrRes.street AS resStreet,
+      adrRes.house_number AS resHouseNumber,
+      adrRes.apartment_number AS resApartmentNumber,
+      adrReg.country AS regCountry,
+      adrReg.city AS regCity,
+      adrReg.postal_code AS regPostalCode,
+      adrReg.street AS regStreet,
+      adrReg.house_number AS regHouseNumber,
+      adrReg.apartment_number AS regApartmentNumber
     FROM patients p
     LEFT JOIN genders g ON p.gender_id = g.id
     LEFT JOIN countries c ON p.nationality_id = c.id
+    LEFT JOIN addresses adrRes ON p.addressResidence_id = adrRes.id
+    LEFT JOIN addresses adrReg ON p.addressRegistration_id = adrReg.id
   `;
   const params = [];
 
