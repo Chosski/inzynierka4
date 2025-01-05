@@ -132,7 +132,6 @@ app.post('/api/login', async (req, res) => {
       const match = await bcrypt.compare(password, user.password);
       if (match) {
         logger.info(`Użytkownik ${login} zalogował się pomyślnie.`);
-        // Usunięto role z odpowiedzi
         res.status(200).json({
           id: user.id,
           login: user.login,
@@ -190,7 +189,6 @@ app.get('/api/users/:id', async (req, res) => {
   const id = req.params.id;
   try {
     const connection = await getConnection();
-    // Bez role w SELECT
     const [users] = await connection.execute(
       'SELECT id, login, firstName, lastName, pesel, password, temporaryPassword FROM users WHERE id = ?',
       [id]
@@ -229,7 +227,6 @@ app.post('/api/users', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     const [result] = await connection.execute(
-      // Nie wstawiamy role
       'INSERT INTO users (login, firstName, lastName, pesel, password, temporaryPassword) VALUES (?, ?, ?, ?, ?, ?)',
       [login, firstName, lastName, pesel, hashedPassword, false]
     );
@@ -262,13 +259,12 @@ app.delete('/api/users/:id', async (req, res) => {
   }
 });
 
-// Edycja użytkownika (opcjonalna zmiana hasła) - bez role
+// Edycja użytkownika (opcjonalna zmiana hasła)
 app.put('/api/users/:id', async (req, res) => {
   const id = req.params.id;
   const { firstName, lastName, pesel, password } = req.body; 
   try {
     const connection = await getConnection();
-    // Bez role
     const [result] = await connection.execute(
       'UPDATE users SET firstName = ?, lastName = ?, pesel = ? WHERE id = ?',
       [firstName, lastName, pesel, id]
@@ -297,7 +293,7 @@ app.put('/api/users/:id', async (req, res) => {
   }
 });
 
-// Resetowanie hasła użytkownika (np. generowanie tymczasowego hasła)
+// Resetowanie hasła użytkownika
 app.put('/api/users/:id/reset-password', async (req, res) => {
   const id = req.params.id;
   const { temporaryPassword } = req.body;
@@ -377,35 +373,31 @@ app.post('/api/users/:id/visible-clinics', async (req, res) => {
 
 /*
 |--------------------------------------------------------------------------
-| LEKARZE 
+| LEKARZE
 |--------------------------------------------------------------------------
-| Uwaga: w Twojej bazie wciąż kolumna `role` istnieje w tabeli `users`,
-| i tu w zapytaniach "WHERE u.role = 'doctor'" jest używany. Możesz to
-| usunąć/modyfikować, bo formalnie rezygnujemy z roli. Zostawiam do decyzji.
+| Usuwamy warunek u.role="doctor". Zamiast tego zakładamy, że jeśli user
+| figuruje w doctor_clinics, to jest lekarzem w danej poradni.
 |--------------------------------------------------------------------------
 */
 app.get('/api/doctors', async (req, res) => {
   const { clinicId, lastName } = req.query;
-  let query = 'SELECT u.id, u.firstName, u.lastName FROM users u WHERE u.role = "doctor"';
+
+  // Podstawowy query, który zwraca userów z doctor_clinics.
+  let query = `
+    SELECT u.id, u.firstName, u.lastName
+    FROM users u
+    JOIN doctor_clinics dc ON u.id = dc.doctor_id
+    WHERE 1 = 1
+  `;
   const params = [];
 
   if (clinicId) {
-    query = `
-      SELECT u.id, u.firstName, u.lastName 
-      FROM users u
-      JOIN doctor_clinics dc ON u.id = dc.doctor_id
-      WHERE u.role = "doctor" AND dc.clinic_id = ?
-    `;
+    query += ' AND dc.clinic_id = ?';
     params.push(clinicId);
-    if (lastName) {
-      query += ' AND u.lastName LIKE ?';
-      params.push(`%${lastName}%`);
-    }
-  } else {
-    if (lastName) {
-      query += ' AND u.lastName LIKE ?';
-      params.push(`%${lastName}%`);
-    }
+  }
+  if (lastName) {
+    query += ' AND u.lastName LIKE ?';
+    params.push(`%${lastName}%`);
   }
 
   try {
@@ -419,17 +411,23 @@ app.get('/api/doctors', async (req, res) => {
   }
 });
 
+// Zwraca info o jednym "lekarzu" - analogicznie bez sprawdzania role="doctor"
 app.get('/api/doctors/:id', async (req, res) => {
   const id = req.params.id;
   try {
     const connection = await getConnection();
-    const [docs] = await connection.execute(
-      'SELECT id, firstName, lastName FROM users WHERE id = ? AND role="doctor"',
-      [id]
-    );
+    // Możesz ograniczyć do tych, którzy mają w doctor_clinics
+    // lub po prostu usera z tym id (co sprawia, że jest "lekarzem" w logice).
+    const [rows] = await connection.execute(`
+      SELECT u.id, u.firstName, u.lastName
+      FROM users u
+      JOIN doctor_clinics dc ON u.id = dc.doctor_id
+      WHERE u.id = ?
+    `, [id]);
+
     connection.end();
-    if (docs.length > 0) {
-      res.status(200).json(docs[0]);
+    if (rows.length > 0) {
+      res.status(200).json(rows[0]);
     } else {
       res.status(404).json({ message: 'Nie znaleziono lekarza' });
     }
@@ -481,8 +479,8 @@ app.post('/api/schedules', async (req, res) => {
   let endTime = end;
   if (!endTime) {
     const startDate = new Date(start);
-    const endDate = new Date(startDate.getTime() + 30*60000);
-    endTime = endDate.toISOString().slice(0,19).replace('T',' ');
+    const endDate = new Date(startDate.getTime() + 30 * 60000);
+    endTime = endDate.toISOString().slice(0, 19).replace('T', ' ');
   }
 
   try {
@@ -670,8 +668,7 @@ app.post('/api/patients', async (req, res) => {
       `INSERT INTO patients (firstName, lastName, pesel, gender_id, nationality_id, phone,
         addressResidence_id, addressRegistration_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [firstName, lastName, pesel, gender_id, nationality_id, phone || null,
-       addressResidence_id, addressRegistration_id]
+      [firstName, lastName, pesel, gender_id, nationality_id, phone || null, addressResidence_id, addressRegistration_id]
     );
 
     connection.end();
@@ -815,11 +812,12 @@ app.get('/api/clinics/:id/doctors', async (req, res) => {
   const id = req.params.id;
   try {
     const connection = await getConnection();
+    // Również bez role='doctor' w warunku
     const [doctors] = await connection.execute(`
       SELECT u.id, u.firstName, u.lastName 
       FROM doctor_clinics dc
       JOIN users u ON dc.doctor_id = u.id
-      WHERE dc.clinic_id = ? AND u.role = 'doctor'
+      WHERE dc.clinic_id = ?
     `, [id]);
     connection.end();
     res.status(200).json(doctors);
@@ -856,10 +854,10 @@ app.post('/api/clinics/:id/doctors', async (req, res) => {
 
 /*
 |--------------------------------------------------------------------------
-| KONFIGURACJA SYSTEMU
+| KONFIGURACJA SYSTEMU (config.json)
 |--------------------------------------------------------------------------
 */
-// Odczyt konfiguracji systemu (config.json)
+// Odczyt konfiguracji systemu
 app.get('/api/system-config', async (req, res) => {
   try {
     if (!fs.existsSync(configFilePath)) {
@@ -885,7 +883,7 @@ app.get('/api/system-config', async (req, res) => {
   }
 });
 
-// Aktualizacja konfiguracji systemu (nadpisanie config.json)
+// Aktualizacja konfiguracji systemu
 app.put('/api/system-config', async (req, res) => {
   try {
     const newConfig = req.body; // Zakładamy, że ciało żądania zawiera nową konfigurację jako JSON
