@@ -1,14 +1,5 @@
 document.addEventListener('DOMContentLoaded', async () => {
-  // Pobierz rolę, login oraz ID użytkownika z localStorage
-  const userRole = localStorage.getItem('userRole');
-  const userLogin = localStorage.getItem('userLogin');
-  const userId = localStorage.getItem('userId');
 
-  // Jeśli brak danych użytkownika, przekieruj na stronę logowania
-  if (!userRole || !userLogin || !userId) {
-    window.location.href = 'index.html';
-    return;
-  }
 
   // Elementy nawigacji
   const adminPanelLink = document.getElementById('admin-panel');
