@@ -10,16 +10,39 @@
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/locales-all.min.js"></script>
 
+  <!-- SKRYPT weryfikujący, czy user ma grupę "doctor" -->
   <script>
     (function() {
       const userId = localStorage.getItem('userId');
       if (!userId) {
         alert('Musisz być zalogowany, aby uzyskać dostęp do tej strony.');
         window.location.href = 'index.html';
+        return;
       }
+
+      fetch(`/api/users/${userId}/all-permissions`)
+        .then(resp => {
+          if (!resp.ok) {
+            throw new Error('Błąd sprawdzania uprawnień.');
+          }
+          return resp.json();
+        })
+        .then(data => {
+          const groups = data.groups || [];
+          // Sprawdzamy, czy user jest w grupie "doctor"
+          const isDoctor = groups.some(g => g.name === 'doctor');
+          if (!isDoctor) {
+            alert('Brak dostępu do Terminarza Lekarza.');
+            window.location.href = 'dashboard.html';
+          }
+        })
+        .catch(err => {
+          console.error('Błąd weryfikacji uprawnień:', err);
+          alert('Błąd sprawdzania uprawnień.');
+          window.location.href = 'dashboard.html';
+        });
     })();
   </script>
-
 
   <script src="src/doctor.js" defer></script>
 </head>
