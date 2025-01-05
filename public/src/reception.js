@@ -202,8 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let response;
         if (patientId) {
           // Edycja pacjenta
-          // (zakładamy, że Twój backend ma endpoint PUT /api/patients/:id
-          //  lub ewentualnie inny, np. POST /api/patients/:id)
+          // (zakładamy, że Twój backend obsługuje PUT /api/patients/:id)
           response = await fetch(`/api/patients/${patientId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -284,6 +283,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let tableRows = '';
 
     patients.forEach((p) => {
+      // Zwróć uwagę, że p.addressResidence i p.addressRegistration
+      // są już w obiekcie p (o ile nasz backend je zwraca).
+      const patientJson = JSON.stringify(p);
+
       tableRows += `
         <tr>
           <td>${p.firstName}</td>
@@ -292,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${p.genderName || ''}</td>
           <td>${p.phone || ''}</td>
           <td>
-            <button class="edit-button" data-patient='${JSON.stringify(p)}'>Edytuj</button>
+            <button class="edit-button" data-patient='${patientJson}'>Edytuj</button>
             <button class="delete-button" data-id="${p.id}">Usuń</button>
           </td>
         </tr>
@@ -382,8 +385,7 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Wprowadź dane do wyszukania.');
         return;
       }
-      // W Twoim backendzie prawdopodobnie i tak reagujesz tylko na "?search=..."
-      // Możesz zignorować searchType w tym prostym przykładzie
+      // W Twoim backendzie i tak reagujesz na "?search=..."
       currentSearchQuery = `?search=${encodeURIComponent(queryVal)}`;
       loadPatients(currentSearchQuery);
     });
