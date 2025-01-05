@@ -1,13 +1,7 @@
 // registration.js
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Sprawdzenie roli użytkownika
-  const userRole = localStorage.getItem('userRole');
-  if (userRole !== 'registration' && userRole !== 'admin') {
-    alert('Brak dostępu do tej strony.');
-    window.location.href = 'dashboard.html';
-    return;
-  }
+  
 
   // Obsługa przycisku "Powrót do Menu Głównego"
   const backButton = document.getElementById('back-to-dashboard');
