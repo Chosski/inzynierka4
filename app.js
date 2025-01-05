@@ -116,6 +116,43 @@ app.use((req, res, next) => {
   });
 });
 
+// przykład endpointu: POST /api/change-password
+app.post('/api/change-password', async (req, res) => {
+  const { login, newPassword } = req.body;
+  if (!login || !newPassword) {
+    return res.status(400).json({ message: 'Brak loginu lub nowego hasła' });
+  }
+
+  try {
+    const connection = await getConnection();
+    // szukamy usera po loginie
+    const [rows] = await connection.execute(
+      'SELECT id FROM users WHERE login = ?',
+      [login]
+    );
+    if (rows.length === 0) {
+      connection.end();
+      return res.status(404).json({ message: 'Nie znaleziono użytkownika' });
+    }
+
+    const userId = rows[0].id;
+
+    // hashowanie
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await connection.execute(
+      'UPDATE users SET password = ?, temporaryPassword = 0 WHERE id = ?',
+      [hashed, userId]
+    );
+    connection.end();
+
+    res.status(200).json({ message: 'Hasło zostało zmienione.' });
+  } catch (err) {
+    console.error('Błąd zmiany hasła:', err);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+
 
 /*
 |--------------------------------------------------------------------------
