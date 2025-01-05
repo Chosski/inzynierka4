@@ -1,5 +1,6 @@
 /************************************
  * app.js - zmodyfikowana wersja
+ *   z obsługą tymczasowego hasła
  ************************************/
 
 const express = require('express');
@@ -52,7 +53,7 @@ const logger = winston.createLogger({
   transports: [
     // zapis logów do pliku system.log
     new winston.transports.File({ filename: path.join(__dirname, 'logs', 'system.log') }),
-    // Aby debugować w konsoli, odkomentuj:
+    // Aby debugować w konsoli, odkomentuj (opcjonalnie):
     // new winston.transports.Console(),
   ],
 });
@@ -118,7 +119,7 @@ app.use((req, res, next) => {
 
 /*
 |--------------------------------------------------------------------------
-| LOGOWANIE
+| LOGOWANIE (z obsługą jednorazowego hasła)
 |--------------------------------------------------------------------------
 */
 app.post('/api/login', async (req, res) => {
@@ -132,10 +133,16 @@ app.post('/api/login', async (req, res) => {
       const match = await bcrypt.compare(password, user.password);
       if (match) {
         logger.info(`Użytkownik ${login} zalogował się pomyślnie.`);
+        
+        // Sprawdzamy, czy hasło jest tymczasowe (temporaryPassword == 1)
+        const isTemp = (user.temporaryPassword === 1);
+
+        // Zwracamy informację o konieczności zmiany hasła
         res.status(200).json({
           id: user.id,
           login: user.login,
-          temporaryPassword: user.temporaryPassword === 1,
+          temporaryPassword: isTemp,
+          forcePasswordChange: isTemp  // <-- front może to wykorzystać do przekierowania
         });
       } else {
         logger.warn(`Nieudana próba logowania dla ${login} - nieprawidłowe hasło.`);
@@ -293,7 +300,7 @@ app.put('/api/users/:id', async (req, res) => {
   }
 });
 
-// Resetowanie hasła użytkownika
+// Resetowanie hasła użytkownika (administrator ustawia tymczasowe)
 app.put('/api/users/:id/reset-password', async (req, res) => {
   const id = req.params.id;
   const { temporaryPassword } = req.body;
@@ -306,18 +313,73 @@ app.put('/api/users/:id/reset-password', async (req, res) => {
     const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
     const [result] = await connection.execute(
       'UPDATE users SET password = ?, temporaryPassword = ? WHERE id = ?',
-      [hashedPassword, true, id]
+      [hashedPassword, 1, id]  // ustawia temporaryPassword = 1
     );
     connection.end();
 
     if (result.affectedRows > 0) {
-      logger.info(`Zresetowano hasło użytkownika o ID ${id}.`);
+      logger.info(`Zresetowano hasło użytkownika o ID ${id}. Tymczasowe hasło: ${temporaryPassword}`);
       res.status(200).json({ message: 'Hasło zostało zresetowane' });
     } else {
       res.status(404).json({ message: 'Nie znaleziono użytkownika' });
     }
   } catch (error) {
     logger.error('Błąd resetowania hasła:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
+/*
+|--------------------------------------------------------------------------
+| NOWY ENDPOINT: ZMIANA TYM RAZOWEGO HASŁA (pierwsze logowanie)
+|--------------------------------------------------------------------------
+| Użytkownik, który ma temporaryPassword = 1, może ustawić własne
+| hasło jednorazowo, po czym temporaryPassword = 0.
+*/
+app.put('/api/users/:id/change-initial-password', async (req, res) => {
+  const userId = req.params.id;
+  const { newPassword } = req.body;
+
+  if (!newPassword || newPassword.trim().length < 6) {
+    return res.status(400).json({ message: 'Hasło musi mieć co najmniej 6 znaków.' });
+  }
+
+  try {
+    const connection = await getConnection();
+    // sprawdzamy czy user wciąż ma temporaryPassword = 1
+    const [rows] = await connection.execute(
+      'SELECT id, temporaryPassword FROM users WHERE id = ?',
+      [userId]
+    );
+
+    if (rows.length === 0) {
+      connection.end();
+      return res.status(404).json({ message: 'Nie znaleziono użytkownika' });
+    }
+
+    const user = rows[0];
+    if (user.temporaryPassword !== 1) {
+      connection.end();
+      return res.status(400).json({
+        message: 'Ten użytkownik nie wymaga zmiany hasła tymczasowego.'
+      });
+    }
+
+    // Ustawiamy nowe hasło i temporaryPassword = 0
+    const hashedPassword = await bcrypt.hash(newPassword.trim(), 10);
+    await connection.execute(
+      'UPDATE users SET password = ?, temporaryPassword = 0 WHERE id = ?',
+      [hashedPassword, userId]
+    );
+    connection.end();
+
+    logger.info(`Użytkownik ${userId} ustawił własne hasło (pierwsze logowanie).`);
+    return res.status(200).json({
+      message: 'Hasło zostało ustawione. Możesz teraz zalogować się ponownie.'
+    });
+
+  } catch (error) {
+    logger.error('Błąd ustawiania hasła początkowego:', error);
     res.status(500).json({ message: 'Błąd serwera' });
   }
 });
@@ -375,19 +437,17 @@ app.post('/api/users/:id/visible-clinics', async (req, res) => {
 |--------------------------------------------------------------------------
 | LEKARZE
 |--------------------------------------------------------------------------
-| Usuwamy warunek u.role="doctor". Zamiast tego zakładamy, że jeśli user
-| figuruje w doctor_clinics, to jest lekarzem w danej poradni.
-|--------------------------------------------------------------------------
+| Nie używamy role='doctor'. Za lekarzy uważamy userów w doctor_clinics.
 */
 app.get('/api/doctors', async (req, res) => {
   const { clinicId, lastName } = req.query;
 
-  // Podstawowy query, który zwraca userów z doctor_clinics.
+  // Podstawowe query zwracające userów z doctor_clinics
   let query = `
     SELECT u.id, u.firstName, u.lastName
     FROM users u
     JOIN doctor_clinics dc ON u.id = dc.doctor_id
-    WHERE 1 = 1
+    WHERE 1=1
   `;
   const params = [];
 
@@ -411,20 +471,16 @@ app.get('/api/doctors', async (req, res) => {
   }
 });
 
-// Zwraca info o jednym "lekarzu" - analogicznie bez sprawdzania role="doctor"
 app.get('/api/doctors/:id', async (req, res) => {
   const id = req.params.id;
   try {
     const connection = await getConnection();
-    // Możesz ograniczyć do tych, którzy mają w doctor_clinics
-    // lub po prostu usera z tym id (co sprawia, że jest "lekarzem" w logice).
     const [rows] = await connection.execute(`
       SELECT u.id, u.firstName, u.lastName
       FROM users u
       JOIN doctor_clinics dc ON u.id = dc.doctor_id
       WHERE u.id = ?
     `, [id]);
-
     connection.end();
     if (rows.length > 0) {
       res.status(200).json(rows[0]);
@@ -668,7 +724,8 @@ app.post('/api/patients', async (req, res) => {
       `INSERT INTO patients (firstName, lastName, pesel, gender_id, nationality_id, phone,
         addressResidence_id, addressRegistration_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [firstName, lastName, pesel, gender_id, nationality_id, phone || null, addressResidence_id, addressRegistration_id]
+      [firstName, lastName, pesel, gender_id, nationality_id, phone || null,
+       addressResidence_id, addressRegistration_id]
     );
 
     connection.end();
@@ -684,33 +741,10 @@ app.post('/api/patients', async (req, res) => {
 app.get('/api/patients', async (req, res) => {
   const { search } = req.query;
   let query = `
-    SELECT
-      p.id,
-      p.firstName,
-      p.lastName,
-      p.pesel,
-      p.gender_id,
-      p.nationality_id,
-      p.phone,
-      g.name AS genderName,
-      c.name AS nationalityName,
-      adrRes.country AS resCountry,
-      adrRes.city AS resCity,
-      adrRes.postal_code AS resPostalCode,
-      adrRes.street AS resStreet,
-      adrRes.house_number AS resHouseNumber,
-      adrRes.apartment_number AS resApartmentNumber,
-      adrReg.country AS regCountry,
-      adrReg.city AS regCity,
-      adrReg.postal_code AS regPostalCode,
-      adrReg.street AS regStreet,
-      adrReg.house_number AS regHouseNumber,
-      adrReg.apartment_number AS regApartmentNumber
+    SELECT p.*, g.name AS genderName, c.name AS nationalityName
     FROM patients p
     LEFT JOIN genders g ON p.gender_id = g.id
     LEFT JOIN countries c ON p.nationality_id = c.id
-    LEFT JOIN addresses adrRes ON p.addressResidence_id = adrRes.id
-    LEFT JOIN addresses adrReg ON p.addressRegistration_id = adrReg.id
   `;
   const params = [];
 
@@ -835,7 +869,6 @@ app.get('/api/clinics/:id/doctors', async (req, res) => {
   const id = req.params.id;
   try {
     const connection = await getConnection();
-    // Również bez role='doctor' w warunku
     const [doctors] = await connection.execute(`
       SELECT u.id, u.firstName, u.lastName 
       FROM doctor_clinics dc
@@ -911,7 +944,6 @@ app.put('/api/system-config', async (req, res) => {
   try {
     const newConfig = req.body; // Zakładamy, że ciało żądania zawiera nową konfigurację jako JSON
 
-    // Przykładowa walidacja
     if (typeof newConfig !== 'object' || Array.isArray(newConfig) || newConfig === null) {
       return res.status(400).json({ message: 'Nieprawidłowy format danych konfiguracji.' });
     }
@@ -976,9 +1008,12 @@ app.get('/schedule.html', (req, res) => {
 |--------------------------------------------------------------------------
 | === PERMISSIONS & PERMISSION GROUPS ===
 |--------------------------------------------------------------------------
-| Poniżej endpointy do szczegółowych uprawnień i grup uprawnień.
-| Zakładamy istnienie tabel: permissions, permission_groups,
-| permission_group_permissions, user_permissions, user_permission_groups.
+| Zakładamy istnienie tabel:
+| - permissions
+| - permission_groups
+| - permission_group_permissions
+| - user_permissions
+| - user_permission_groups
 |--------------------------------------------------------------------------
 */
 
