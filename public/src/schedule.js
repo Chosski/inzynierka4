@@ -1,12 +1,7 @@
 // schedule.js
 
 document.addEventListener('DOMContentLoaded', () => {
-  const userRole = localStorage.getItem('userRole');
-  if (userRole !== 'admin' && userRole !== 'reception') {
-    alert('Brak dostępu do tej strony.');
-    window.location.href = 'dashboard.html';
-    return;
-  }
+ 
 
   const backButton = document.getElementById('back-to-dashboard');
   const logoutButton = document.getElementById('logout-button');
