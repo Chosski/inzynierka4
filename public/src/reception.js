@@ -3,11 +3,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   // Sprawdzenie roli użytkownika
   const userRole = localStorage.getItem('userRole');
-  if (userRole !== 'reception' && userRole !== 'admin' && userRole !== 'doctor') {
-    alert('Brak dostępu do tej strony.');
-    window.location.href = 'dashboard.html';
-    return;
-  }
+  
 
   const backButton = document.getElementById('back-to-dashboard');
   if (backButton) {
