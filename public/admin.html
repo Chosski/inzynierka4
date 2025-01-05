@@ -8,7 +8,41 @@
   <script src="src/admin.js" defer></script>
 
   <!-- Skrypt weryfikujący przynależność do grupy "admin" --> 
+  <script>
+    (function() {
+      const userId = localStorage.getItem('userId');
+      if (!userId) {
+        alert('Musisz być zalogowany, aby uzyskać dostęp do tej strony.');
+        window.location.href = 'index.html';
+        return;
+      }
 
+      // Wywołujemy endpoint sprawdzający uprawnienia i grupy
+      fetch(`/api/users/${userId}/all-permissions`)
+        .then(resp => {
+          if (!resp.ok) {
+            throw new Error('Błąd sprawdzania uprawnień.');
+          }
+          return resp.json();
+        })
+        .then(data => {
+          // `data.groups` to tablica grup, np. [{ id:1, name:'admin' }, ...]
+          const userGroups = data.groups || [];
+          // Sprawdzamy, czy user ma grupę o nazwie 'admin'
+          const isAdmin = userGroups.some(g => g.name === 'admin');
+          if (!isAdmin) {
+            alert('Brak dostępu do Panelu Administratora.');
+            window.location.href = 'dashboard.html';
+          }
+          // Jeśli jest admin – user zostaje
+        })
+        .catch(err => {
+          console.error('Błąd weryfikacji uprawnień:', err);
+          alert('Błąd sprawdzania uprawnień.');
+          window.location.href = 'dashboard.html';
+        });
+    })();
+  </script> 
 </head>
 <body>
   <header>
