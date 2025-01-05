@@ -20,7 +20,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 /** 
- * Odczytujemy z .env zmienną: DATABASE_URL (np. "mysql://root:haslo@host:3306/mydb")
+ * Odczytujemy z .env zmienną: DATABASE_URL
  */
 const dbUrl = process.env.DATABASE_URL;
 if (!dbUrl) {
@@ -52,7 +52,7 @@ const logger = winston.createLogger({
   transports: [
     // zapis logów do pliku system.log
     new winston.transports.File({ filename: path.join(__dirname, 'logs', 'system.log') }),
-    // Jeśli chcesz debugować w konsoli, odkomentuj:
+    // Aby debugować w konsoli, odkomentuj:
     // new winston.transports.Console(),
   ],
 });
@@ -132,10 +132,10 @@ app.post('/api/login', async (req, res) => {
       const match = await bcrypt.compare(password, user.password);
       if (match) {
         logger.info(`Użytkownik ${login} zalogował się pomyślnie.`);
+        // Usunięto role z odpowiedzi
         res.status(200).json({
           id: user.id,
           login: user.login,
-          role: user.role,
           temporaryPassword: user.temporaryPassword === 1,
         });
       } else {
@@ -156,7 +156,7 @@ app.post('/api/login', async (req, res) => {
 
 /*
 |--------------------------------------------------------------------------
-| UŻYTKOWNICY
+| UŻYTKOWNICY (bez role)
 |--------------------------------------------------------------------------
 */
 
@@ -164,7 +164,7 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/users', async (req, res) => {
   try {
     const { login, lastName } = req.query;
-    let query = 'SELECT id, login, firstName, lastName, pesel, role FROM users';
+    let query = 'SELECT id, login, firstName, lastName, pesel FROM users';
     const params = [];
 
     if (login) {
@@ -190,7 +190,11 @@ app.get('/api/users/:id', async (req, res) => {
   const id = req.params.id;
   try {
     const connection = await getConnection();
-    const [users] = await connection.execute('SELECT * FROM users WHERE id = ?', [id]);
+    // Bez role w SELECT
+    const [users] = await connection.execute(
+      'SELECT id, login, firstName, lastName, pesel, password, temporaryPassword FROM users WHERE id = ?',
+      [id]
+    );
     connection.end();
 
     if (users.length > 0) {
@@ -204,9 +208,9 @@ app.get('/api/users/:id', async (req, res) => {
   }
 });
 
-// Dodawanie użytkownika
+// Dodawanie użytkownika (bez roli)
 app.post('/api/users', async (req, res) => {
-  const { login, firstName, lastName, pesel, role, password } = req.body;
+  const { login, firstName, lastName, pesel, password } = req.body;
   try {
     const connection = await getConnection();
     // Sprawdź, czy istnieje już użytkownik o podanym loginie lub PESEL
@@ -225,8 +229,9 @@ app.post('/api/users', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     const [result] = await connection.execute(
-      'INSERT INTO users (login, firstName, lastName, pesel, role, password, temporaryPassword) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [login, firstName, lastName, pesel, role, hashedPassword, false]
+      // Nie wstawiamy role
+      'INSERT INTO users (login, firstName, lastName, pesel, password, temporaryPassword) VALUES (?, ?, ?, ?, ?, ?)',
+      [login, firstName, lastName, pesel, hashedPassword, false]
     );
     connection.end();
     logger.info(`Dodano nowego użytkownika ${login}.`);
@@ -257,15 +262,16 @@ app.delete('/api/users/:id', async (req, res) => {
   }
 });
 
-// Edycja użytkownika (opcjonalna zmiana hasła)
+// Edycja użytkownika (opcjonalna zmiana hasła) - bez role
 app.put('/api/users/:id', async (req, res) => {
   const id = req.params.id;
-  const { firstName, lastName, pesel, role, password } = req.body;
+  const { firstName, lastName, pesel, password } = req.body; 
   try {
     const connection = await getConnection();
+    // Bez role
     const [result] = await connection.execute(
-      'UPDATE users SET firstName = ?, lastName = ?, pesel = ?, role = ? WHERE id = ?',
-      [firstName, lastName, pesel, role, id]
+      'UPDATE users SET firstName = ?, lastName = ?, pesel = ? WHERE id = ?',
+      [firstName, lastName, pesel, id]
     );
 
     if (result.affectedRows > 0) {
@@ -320,6 +326,7 @@ app.put('/api/users/:id/reset-password', async (req, res) => {
   }
 });
 
+
 /*
 |--------------------------------------------------------------------------
 | WIDOCZNE PORADNIE DLA UŻYTKOWNIKA
@@ -370,7 +377,11 @@ app.post('/api/users/:id/visible-clinics', async (req, res) => {
 
 /*
 |--------------------------------------------------------------------------
-| LEKARZE
+| LEKARZE 
+|--------------------------------------------------------------------------
+| Uwaga: w Twojej bazie wciąż kolumna `role` istnieje w tabeli `users`,
+| i tu w zapytaniach "WHERE u.role = 'doctor'" jest używany. Możesz to
+| usunąć/modyfikować, bo formalnie rezygnujemy z roli. Zostawiam do decyzji.
 |--------------------------------------------------------------------------
 */
 app.get('/api/doctors', async (req, res) => {
@@ -431,10 +442,10 @@ app.get('/api/doctors/:id', async (req, res) => {
 
 /*
 |--------------------------------------------------------------------------
-| TERMINARZ
+| TERMINARZ (schedules)
 |--------------------------------------------------------------------------
 */
-// Dodano endpoint do pobierania liczby dzisiejszych wizyt dla lekarza
+// Pobieranie liczby dzisiejszych wizyt
 app.get('/api/schedules/today', async (req, res) => {
   const { doctorId } = req.query;
 
@@ -459,7 +470,7 @@ app.get('/api/schedules/today', async (req, res) => {
   }
 });
 
-// Dodawanie nowego terminu
+// Dodawanie terminu
 app.post('/api/schedules', async (req, res) => {
   const { doctorId, patientId, start, end, clinicId } = req.body;
 
@@ -470,8 +481,8 @@ app.post('/api/schedules', async (req, res) => {
   let endTime = end;
   if (!endTime) {
     const startDate = new Date(start);
-    const endDate = new Date(startDate.getTime() + 30 * 60000);
-    endTime = endDate.toISOString().slice(0, 19).replace('T', ' ');
+    const endDate = new Date(startDate.getTime() + 30*60000);
+    endTime = endDate.toISOString().slice(0,19).replace('T',' ');
   }
 
   try {
@@ -616,7 +627,6 @@ app.put('/api/schedules/:id', async (req, res) => {
 | PACJENCI
 |--------------------------------------------------------------------------
 */
-// Dodawanie pacjenta (z osobną tabelą addresses)
 app.post('/api/patients', async (req, res) => {
   const {
     firstName,
@@ -657,9 +667,11 @@ app.post('/api/patients', async (req, res) => {
 
     // Wstawianie pacjenta
     const [resultPatient] = await connection.execute(
-      `INSERT INTO patients (firstName, lastName, pesel, gender_id, nationality_id, phone, addressResidence_id, addressRegistration_id)
+      `INSERT INTO patients (firstName, lastName, pesel, gender_id, nationality_id, phone,
+        addressResidence_id, addressRegistration_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [firstName, lastName, pesel, gender_id, nationality_id, phone || null, addressResidence_id, addressRegistration_id]
+      [firstName, lastName, pesel, gender_id, nationality_id, phone || null,
+       addressResidence_id, addressRegistration_id]
     );
 
     connection.end();
@@ -672,7 +684,6 @@ app.post('/api/patients', async (req, res) => {
   }
 });
 
-// Pobieranie pacjentów (z wyszukiwaniem po imieniu, nazwisku, peselu)
 app.get('/api/patients', async (req, res) => {
   const { search } = req.query;
   let query = `
@@ -700,7 +711,6 @@ app.get('/api/patients', async (req, res) => {
   }
 });
 
-// Płcie
 app.get('/api/genders', async (req, res) => {
   try {
     const connection = await getConnection();
@@ -713,7 +723,6 @@ app.get('/api/genders', async (req, res) => {
   }
 });
 
-// Kraje
 app.get('/api/countries', async (req, res) => {
   try {
     const connection = await getConnection();
@@ -729,7 +738,7 @@ app.get('/api/countries', async (req, res) => {
 
 /*
 |--------------------------------------------------------------------------
-| PORADNIE
+| PORADNIE (clinics)
 |--------------------------------------------------------------------------
 */
 app.get('/api/clinics', async (req, res) => {
@@ -881,7 +890,7 @@ app.put('/api/system-config', async (req, res) => {
   try {
     const newConfig = req.body; // Zakładamy, że ciało żądania zawiera nową konfigurację jako JSON
 
-    // Przykładowa walidacja (można rozszerzyć)
+    // Przykładowa walidacja
     if (typeof newConfig !== 'object' || Array.isArray(newConfig) || newConfig === null) {
       return res.status(400).json({ message: 'Nieprawidłowy format danych konfiguracji.' });
     }
@@ -946,13 +955,9 @@ app.get('/schedule.html', (req, res) => {
 |--------------------------------------------------------------------------
 | === PERMISSIONS & PERMISSION GROUPS ===
 |--------------------------------------------------------------------------
-| Poniżej przykładowe endpointy do obsługi szczegółowych uprawnień i grup
-| uprawnień. Aby działały, musisz mieć odpowiednie tabele w bazie, np.:
-|  - permissions (id, name, description)
-|  - permission_groups (id, name)
-|  - permission_group_permissions (group_id, permission_id)
-|  - user_permissions (user_id, permission_id)
-|  - user_permission_groups (user_id, group_id)
+| Poniżej endpointy do szczegółowych uprawnień i grup uprawnień.
+| Zakładamy istnienie tabel: permissions, permission_groups,
+| permission_group_permissions, user_permissions, user_permission_groups.
 |--------------------------------------------------------------------------
 */
 
@@ -1197,13 +1202,12 @@ app.post('/api/permission-groups/:id/permissions', async (req, res) => {
 
 
 // --- 3. USER -> PERMISSIONS / GROUPS ---
-// Pobranie wszystkich uprawnień i grup przypisanych do użytkownika
 app.get('/api/users/:id/all-permissions', async (req, res) => {
   const { id } = req.params;
   try {
     const connection = await getConnection();
 
-    // Uprawnienia „pojedyncze”
+    // Pojedyncze uprawnienia usera
     const [userPerms] = await connection.execute(
       `SELECT p.* 
        FROM user_permissions up
@@ -1212,7 +1216,7 @@ app.get('/api/users/:id/all-permissions', async (req, res) => {
       [id]
     );
 
-    // Grupy uprawnień
+    // Grupy uprawnień usera
     const [userGroups] = await connection.execute(
       `SELECT g.* 
        FROM user_permission_groups ug
