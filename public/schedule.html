@@ -10,13 +10,38 @@
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/locales-all.min.js"></script>
 
+  <!-- SKRYPT weryfikujący dostęp do grupy "reception" -->
   <script>
     (function() {
       const userId = localStorage.getItem('userId');
       if (!userId) {
         alert('Musisz być zalogowany, aby uzyskać dostęp do tej strony.');
         window.location.href = 'index.html';
+        return;
       }
+
+      fetch(`/api/users/${userId}/all-permissions`)
+        .then(resp => {
+          if (!resp.ok) {
+            throw new Error('Błąd sprawdzania uprawnień.');
+          }
+          return resp.json();
+        })
+        .then(data => {
+          const groups = data.groups || [];
+          // Sprawdzamy, czy user jest w grupie "reception"
+          const isReceptionOrAdmin = groups.some(g => g.name === 'reception' || g.name === 'admin');
+if (!isReceptionOrAdmin) {
+  alert('Brak dostępu do Ewidencji Pacjentów.');
+  window.location.href = 'dashboard.html';
+}
+          }
+        })
+        .catch(err => {
+          console.error('Błąd weryfikacji uprawnień:', err);
+          alert('Błąd sprawdzania uprawnień.');
+          window.location.href = 'dashboard.html';
+        });
     })();
   </script>
 
