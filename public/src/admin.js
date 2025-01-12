@@ -1,9 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
  
-
-  // ---------------------------
-  // Sekcje / Taby
-  // ---------------------------
   const manageUsersTab = document.getElementById('manage-users-tab');
   const systemLogsTab = document.getElementById('system-logs-tab');
   const systemConfigTab = document.getElementById('system-config-tab');
@@ -82,15 +78,14 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
 
-  // ---------------------------
+
   // Zarządzanie Użytkownikami
-  // ---------------------------
   const searchUserForm = document.getElementById('search-user-form');
   const resetSearchButton = document.getElementById('reset-search');
   const userList = document.getElementById('user-list');
   let currentUserSearchQuery = '';
 
-  // --- Dodawanie użytkownika ---
+  //Dodawanie użytkownika
   const addUserButton = document.getElementById('add-user-button');
   const addUserModal = document.getElementById('add-user-modal');
   const closeAddUserModalButton = document.getElementById('close-add-user-modal');
@@ -104,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const addUserPasswordConfirmField = document.getElementById('add-user-password-confirm');
   const addUserClinicsContainer = document.getElementById('add-user-clinics-container');
 
-  // --- Edycja użytkownika ---
+  //Edycja użytkownika
   const editUserModal = document.getElementById('edit-user-modal');
   const closeEditUserModalButton = document.getElementById('close-edit-user-modal');
   const editUserForm = document.getElementById('edit-user-form');
@@ -367,7 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Zapis edytowanego użytkownika (modal "Edycja Użytkownika")
+  // Zapis edytowanego użytkownika
   editUserForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -567,10 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   };
 
-
-  // ---------------------------
-  // Zarządzanie Poradniami
-  // ---------------------------
+// Zarządzanie poradniami
   async function loadClinics() {
     try {
       const resp = await fetch('/api/clinics');
@@ -881,9 +873,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  // ---------------------------
   // LOGI SYSTEMOWE
-  // ---------------------------
   async function loadSystemLogs() {
     try {
       const response = await fetch('/api/system-logs');
@@ -900,9 +890,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  // ---------------------------
   // KONFIGURACJA SYSTEMU
-  // ---------------------------
   const systemConfigForm = document.getElementById('system-config-form');
   systemConfigForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -943,9 +931,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  // ---------------------------
   // ZARZĄDZANIE UPRAWNIENIAMI
-  // ---------------------------
   // REFS do przycisków, modali i formularzy
   const addPermissionButton = document.getElementById('add-permission-button');
   const permissionModal = document.getElementById('permission-modal');
@@ -1194,7 +1180,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Render uprawnień (po pobraniu)
+  // Render uprawnień
   function renderPermissions(perms) {
     const permissionsList = document.getElementById('permissions-list');
     if (!perms || perms.length === 0) {
