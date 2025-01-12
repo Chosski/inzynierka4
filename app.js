@@ -1,8 +1,3 @@
-/************************************
- * app.js - zmodyfikowana wersja
- *   z obsługą tymczasowego hasła
- ************************************/
-
 const express = require('express');
 const path = require('path');
 const mysql = require('mysql2/promise');
@@ -15,14 +10,8 @@ const { URL } = require('url'); // do parsowania DATABASE_URL
 
 const app = express();
 
-/**
- * Jeśli chcesz nasłuchiwać na porcie z .env lub domyślnie 3000
- */
-const PORT = process.env.PORT || 3000;
 
-/** 
- * Odczytujemy z .env zmienną: DATABASE_URL
- */
+const PORT = process.env.PORT || 3000;
 const dbUrl = process.env.DATABASE_URL;
 if (!dbUrl) {
   console.error('Brak zdefiniowanej zmiennej DATABASE_URL w .env!');
@@ -41,9 +30,7 @@ const dbConfig = {
   database: parsedDbUrl.pathname.replace('/', ''), // usunięcie "/" z początku ścieżki
 };
 
-/**
- * Konfiguracja loggera (winston)
- */
+
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(
@@ -53,8 +40,6 @@ const logger = winston.createLogger({
   transports: [
     // zapis logów do pliku system.log
     new winston.transports.File({ filename: path.join(__dirname, 'logs', 'system.log') }),
-    // Aby debugować w konsoli, odkomentuj (opcjonalnie):
-    // new winston.transports.Console(),
   ],
 });
 
@@ -63,9 +48,6 @@ const logger = winston.createLogger({
  */
 const configFilePath = path.join(__dirname, 'config.json');
 
-/**
- * Funkcja pomocnicza do łączenia się z bazą
- */
 async function getConnection() {
   let connection;
   try {
@@ -79,20 +61,9 @@ async function getConnection() {
   }
   return connection;
 }
-
-/**
- * Parsowanie JSON w body
- */
 app.use(express.json());
-
-/**
- * Serwuj pliki statyczne z folderu "public"
- */
 app.use(express.static(path.join(__dirname, 'public')));
 
-/**
- * Middleware sprawdzający tryb konserwacji
- */
 app.use((req, res, next) => {
   fs.readFile(configFilePath, 'utf8', (err, data) => {
     if (err) {
@@ -116,7 +87,7 @@ app.use((req, res, next) => {
   });
 });
 
-// przykład endpointu: POST /api/change-password
+//POST /api/change-password
 app.post('/api/change-password', async (req, res) => {
   const { login, newPassword } = req.body;
   if (!login || !newPassword) {
@@ -154,11 +125,7 @@ app.post('/api/change-password', async (req, res) => {
 
 
 
-/*
-|--------------------------------------------------------------------------
-| LOGOWANIE (z obsługą jednorazowego hasła)
-|--------------------------------------------------------------------------
-*/
+//LOGOWANIE
 app.post('/api/login', async (req, res) => {
   const { login, password } = req.body;
   try {
@@ -179,7 +146,7 @@ app.post('/api/login', async (req, res) => {
           id: user.id,
           login: user.login,
           temporaryPassword: isTemp,
-          forcePasswordChange: isTemp  // <-- front może to wykorzystać do przekierowania
+          forcePasswordChange: isTemp
         });
       } else {
         logger.warn(`Nieudana próba logowania dla ${login} - nieprawidłowe hasło.`);
@@ -197,13 +164,8 @@ app.post('/api/login', async (req, res) => {
 });
 
 
-/*
-|--------------------------------------------------------------------------
-| UŻYTKOWNICY (bez role)
-|--------------------------------------------------------------------------
-*/
 
-// Pobieranie listy użytkowników (z opcjonalnym filtrem login/lastName)
+// Pobieranie listy użytkowników
 app.get('/api/users', async (req, res) => {
   try {
     const { login, lastName } = req.query;
@@ -255,7 +217,7 @@ app.post('/api/users', async (req, res) => {
   const { login, firstName, lastName, pesel, password } = req.body;
   try {
     const connection = await getConnection();
-    // Sprawdź, czy istnieje już użytkownik o podanym loginie lub PESEL
+    // Walidacja 
     const [existingUsers] = await connection.execute(
       'SELECT * FROM users WHERE login = ? OR pesel = ?',
       [login, pesel]
@@ -366,13 +328,7 @@ app.put('/api/users/:id/reset-password', async (req, res) => {
   }
 });
 
-/*
-|--------------------------------------------------------------------------
-| NOWY ENDPOINT: ZMIANA TYM RAZOWEGO HASŁA (pierwsze logowanie)
-|--------------------------------------------------------------------------
-| Użytkownik, który ma temporaryPassword = 1, może ustawić własne
-| hasło jednorazowo, po czym temporaryPassword = 0.
-*/
+//Reset hasła tymczasowego przez uzytkownika
 app.put('/api/users/:id/change-initial-password', async (req, res) => {
   const userId = req.params.id;
   const { newPassword } = req.body;
@@ -422,11 +378,7 @@ app.put('/api/users/:id/change-initial-password', async (req, res) => {
 });
 
 
-/*
-|--------------------------------------------------------------------------
-| WIDOCZNE PORADNIE DLA UŻYTKOWNIKA
-|--------------------------------------------------------------------------
-*/
+//Widoczne poradnie dla użytkownika
 app.get('/api/users/:id/visible-clinics', async (req, res) => {
   const userId = req.params.id;
   try {
@@ -470,12 +422,7 @@ app.post('/api/users/:id/visible-clinics', async (req, res) => {
 });
 
 
-/*
-|--------------------------------------------------------------------------
-| LEKARZE
-|--------------------------------------------------------------------------
-| Nie używamy role='doctor'. Za lekarzy uważamy userów w doctor_clinics.
-*/
+
 app.get('/api/doctors', async (req, res) => {
   const { clinicId, lastName } = req.query;
 
@@ -531,11 +478,6 @@ app.get('/api/doctors/:id', async (req, res) => {
 });
 
 
-/*
-|--------------------------------------------------------------------------
-| TERMINARZ (schedules)
-|--------------------------------------------------------------------------
-*/
 // Pobieranie liczby dzisiejszych wizyt
 app.get('/api/schedules/today', async (req, res) => {
   const { doctorId } = req.query;
@@ -713,11 +655,6 @@ app.put('/api/schedules/:id', async (req, res) => {
 });
 
 
-/*
-|--------------------------------------------------------------------------
-| PACJENCI
-|--------------------------------------------------------------------------
-*/
 app.post('/api/patients', async (req, res) => {
   const {
     firstName,
@@ -827,11 +764,6 @@ app.get('/api/countries', async (req, res) => {
 });
 
 
-/*
-|--------------------------------------------------------------------------
-| PORADNIE (clinics)
-|--------------------------------------------------------------------------
-*/
 app.get('/api/clinics', async (req, res) => {
   try {
     const connection = await getConnection();
@@ -945,11 +877,7 @@ app.post('/api/clinics/:id/doctors', async (req, res) => {
 });
 
 
-/*
-|--------------------------------------------------------------------------
-| KONFIGURACJA SYSTEMU (config.json)
-|--------------------------------------------------------------------------
-*/
+//System konfig 
 // Odczyt konfiguracji systemu
 app.get('/api/system-config', async (req, res) => {
   try {
@@ -1021,11 +949,7 @@ app.get('/api/system-logs', async (req, res) => {
 });
 
 
-/*
-|--------------------------------------------------------------------------
-| STRONY STATYCZNE
-|--------------------------------------------------------------------------
-*/
+//STRONY STATYCZNE
 app.get('/edit_patient.html', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/edit_patient.html'));
 });
@@ -1041,20 +965,6 @@ app.get('/schedule.html', (req, res) => {
 });
 
 
-/*
-|--------------------------------------------------------------------------
-| === PERMISSIONS & PERMISSION GROUPS ===
-|--------------------------------------------------------------------------
-| Zakładamy istnienie tabel:
-| - permissions
-| - permission_groups
-| - permission_group_permissions
-| - user_permissions
-| - user_permission_groups
-|--------------------------------------------------------------------------
-*/
-
-// --- 1. Permissions ---
 app.get('/api/permissions', async (req, res) => {
   try {
     const connection = await getConnection();
@@ -1145,7 +1055,6 @@ app.delete('/api/permissions/:id', async (req, res) => {
 });
 
 
-// --- 2. Permission Groups ---
 app.get('/api/permission-groups', async (req, res) => {
   try {
     const connection = await getConnection();
@@ -1294,7 +1203,6 @@ app.post('/api/permission-groups/:id/permissions', async (req, res) => {
 });
 
 
-// --- 3. USER -> PERMISSIONS / GROUPS ---
 app.get('/api/users/:id/all-permissions', async (req, res) => {
   const { id } = req.params;
   try {
@@ -1379,11 +1287,7 @@ app.post('/api/users/:id/all-permissions', async (req, res) => {
 });
 
 
-/*
-|--------------------------------------------------------------------------
-| URUCHOMIENIE SERWERA
-|--------------------------------------------------------------------------
-*/
+//Uruchomienie serwera
 app.listen(PORT, () => {
   console.log(`Serwer działa na http://localhost:${PORT}`);
 });
