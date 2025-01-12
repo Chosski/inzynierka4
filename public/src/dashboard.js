@@ -121,7 +121,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (tileSystem)  tileSystem.style.display = 'none';
 
   // Logika widoczności kafli:
-  // 1) Admin widzi kafle 1,2,4 (ew. 3 też, jeśli chcesz)
   if (isAdmin) {
     if (tileUsers)   tileUsers.style.display = 'block';
     if (tileClinics) tileClinics.style.display = 'block';
@@ -149,11 +148,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.error('Błąd pobierania listy poradni:', e);
     }
 
-    // (Jeśli chcesz też wczytać liczbę wizyt: 
-    //   tileVisits.style.display = 'block'; 
-    //   fetch /api/schedules/today?doctorId=..., itp.)
   }
-  // 2) Doktor widzi kafle (3) wizyty dziś i (4) status
   else if (isDoctor) {
     if (tileVisits)  tileVisits.style.display = 'block';
     if (tileSystem)  tileSystem.style.display = 'block';
@@ -172,7 +167,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('todays-schedules').textContent = 'Błąd!';
     }
   }
-  // 3) Każdy inny (np. reception) widzi tylko kafel (4) status systemu
   else {
     if (tileSystem) tileSystem.style.display = 'block';
   }
