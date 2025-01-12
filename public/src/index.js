@@ -1,4 +1,4 @@
-// login.js - uproszczony fragment
+// login.js
 document.getElementById('login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
 
