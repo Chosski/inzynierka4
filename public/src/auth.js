@@ -1,6 +1,5 @@
-/************************************
- * auth.js - zmodyfikowana wersja
- ************************************/
+
+ //auth.js 
 document.addEventListener('DOMContentLoaded', () => {
   const loginForm = document.getElementById('login-form');
   const errorMessage = document.getElementById('error-message');
