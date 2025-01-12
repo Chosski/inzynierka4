@@ -1,7 +1,7 @@
 // doctor.js
 
 document.addEventListener('DOMContentLoaded', () => {
-  // *** NAJWAŻNIEJSZA RZECZ: wczytujemy userId z localStorage ***
+  //wczytujemy userId z localStorage
   const userId = localStorage.getItem('userId');
 
   // Walidacja - jeżeli nie mamy userId w localStorage, to przekierowujemy
@@ -29,9 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Select do wyboru poradni (widocznej dla lekarza)
   const clinicSelect = document.getElementById('clinic-select');
 
-  // -------------------------------------------------
   // Funkcja ładująca poradnie przypisane do lekarza
-  // -------------------------------------------------
   async function loadClinicsForDoctor(doctorId) {
     try {
       const response = await fetch(`/api/users/${doctorId}/visible-clinics`, {
@@ -61,9 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Referencja do kalendarza
   let calendar = null;
 
-  // -------------------------------------------------
   // Inicjalizacja kalendarza FullCalendar
-  // -------------------------------------------------
   function loadCalendar() {
     // Jeśli mamy już kalendarz, to go najpierw niszczymy, by stworzyć od nowa
     if (calendar) {
@@ -89,9 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
     calendar.render();
   }
 
-  // -------------------------------------------------
   // Funkcja pobierająca listę eventów (wizyt) z backendu
-  // -------------------------------------------------
   function fetchEvents(fetchInfo, successCallback, failureCallback) {
     // Budujemy endpoint
     let url = `/api/schedules?doctorId=${userId}`;
@@ -135,9 +129,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Na zakończenie:
-  // 1) Ładujemy widoczne poradnie dla tego lekarza
-  // 2) Inicjujemy kalendarz
   loadClinicsForDoctor(userId).then(() => {
     loadCalendar();
   });
