@@ -1,3 +1,5 @@
+
+
 const express = require('express');
 const path = require('path');
 const mysql = require('mysql2/promise');
@@ -10,7 +12,6 @@ const { URL } = require('url'); // do parsowania DATABASE_URL
 
 const app = express();
 
-
 const PORT = process.env.PORT || 3000;
 const dbUrl = process.env.DATABASE_URL;
 if (!dbUrl) {
@@ -18,9 +19,8 @@ if (!dbUrl) {
   process.exit(1);
 }
 
-/**
- * Parsujemy URL i rozbijamy na części składowe
- */
+
+//Parsujemy URL i rozbijamy na części składowe
 const parsedDbUrl = new URL(dbUrl);
 const dbConfig = {
   host: parsedDbUrl.hostname,
@@ -29,7 +29,6 @@ const dbConfig = {
   password: parsedDbUrl.password,
   database: parsedDbUrl.pathname.replace('/', ''), // usunięcie "/" z początku ścieżki
 };
-
 
 const logger = winston.createLogger({
   level: 'info',
@@ -40,12 +39,10 @@ const logger = winston.createLogger({
   transports: [
     // zapis logów do pliku system.log
     new winston.transports.File({ filename: path.join(__dirname, 'logs', 'system.log') }),
+
   ],
 });
 
-/**
- * Ścieżka do pliku config.json (zawierającego np. maintenanceMode)
- */
 const configFilePath = path.join(__dirname, 'config.json');
 
 async function getConnection() {
@@ -123,8 +120,6 @@ app.post('/api/change-password', async (req, res) => {
   }
 });
 
-
-
 //LOGOWANIE
 app.post('/api/login', async (req, res) => {
   const { login, password } = req.body;
@@ -137,7 +132,7 @@ app.post('/api/login', async (req, res) => {
       const match = await bcrypt.compare(password, user.password);
       if (match) {
         logger.info(`Użytkownik ${login} zalogował się pomyślnie.`);
-        
+
         // Sprawdzamy, czy hasło jest tymczasowe (temporaryPassword == 1)
         const isTemp = (user.temporaryPassword === 1);
 
@@ -146,7 +141,7 @@ app.post('/api/login', async (req, res) => {
           id: user.id,
           login: user.login,
           temporaryPassword: isTemp,
-          forcePasswordChange: isTemp
+          forcePasswordChange: isTemp, // <-- front może to wykorzystać do przekierowania
         });
       } else {
         logger.warn(`Nieudana próba logowania dla ${login} - nieprawidłowe hasło.`);
@@ -163,9 +158,8 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-
-
-// Pobieranie listy użytkowników
+//Użytkownicy
+// Pobieranie listy użytkowników (z opcjonalnym filtrem login/lastName)
 app.get('/api/users', async (req, res) => {
   try {
     const { login, lastName } = req.query;
@@ -212,12 +206,12 @@ app.get('/api/users/:id', async (req, res) => {
   }
 });
 
-// Dodawanie użytkownika (bez roli)
+// Dodawanie użytkownika 
 app.post('/api/users', async (req, res) => {
   const { login, firstName, lastName, pesel, password } = req.body;
   try {
     const connection = await getConnection();
-    // Walidacja 
+    // Sprawdź, czy istnieje już użytkownik o podanym loginie lub PESEL
     const [existingUsers] = await connection.execute(
       'SELECT * FROM users WHERE login = ? OR pesel = ?',
       [login, pesel]
@@ -265,10 +259,10 @@ app.delete('/api/users/:id', async (req, res) => {
   }
 });
 
-// Edycja użytkownika (opcjonalna zmiana hasła)
+// Edycja użytkownika
 app.put('/api/users/:id', async (req, res) => {
   const id = req.params.id;
-  const { firstName, lastName, pesel, password } = req.body; 
+  const { firstName, lastName, pesel, password } = req.body;
   try {
     const connection = await getConnection();
     const [result] = await connection.execute(
@@ -299,7 +293,7 @@ app.put('/api/users/:id', async (req, res) => {
   }
 });
 
-// Resetowanie hasła użytkownika (administrator ustawia tymczasowe)
+// Resetowanie hasła użytkownika 
 app.put('/api/users/:id/reset-password', async (req, res) => {
   const id = req.params.id;
   const { temporaryPassword } = req.body;
@@ -312,7 +306,7 @@ app.put('/api/users/:id/reset-password', async (req, res) => {
     const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
     const [result] = await connection.execute(
       'UPDATE users SET password = ?, temporaryPassword = ? WHERE id = ?',
-      [hashedPassword, 1, id]  // ustawia temporaryPassword = 1
+      [hashedPassword, 1, id] // ustawia temporaryPassword = 1
     );
     connection.end();
 
@@ -328,7 +322,7 @@ app.put('/api/users/:id/reset-password', async (req, res) => {
   }
 });
 
-//Reset hasła tymczasowego przez uzytkownika
+
 app.put('/api/users/:id/change-initial-password', async (req, res) => {
   const userId = req.params.id;
   const { newPassword } = req.body;
@@ -354,7 +348,7 @@ app.put('/api/users/:id/change-initial-password', async (req, res) => {
     if (user.temporaryPassword !== 1) {
       connection.end();
       return res.status(400).json({
-        message: 'Ten użytkownik nie wymaga zmiany hasła tymczasowego.'
+        message: 'Ten użytkownik nie wymaga zmiany hasła tymczasowego.',
       });
     }
 
@@ -368,27 +362,28 @@ app.put('/api/users/:id/change-initial-password', async (req, res) => {
 
     logger.info(`Użytkownik ${userId} ustawił własne hasło (pierwsze logowanie).`);
     return res.status(200).json({
-      message: 'Hasło zostało ustawione. Możesz teraz zalogować się ponownie.'
+      message: 'Hasło zostało ustawione. Możesz teraz zalogować się ponownie.',
     });
-
   } catch (error) {
     logger.error('Błąd ustawiania hasła początkowego:', error);
     res.status(500).json({ message: 'Błąd serwera' });
   }
 });
 
-
 //Widoczne poradnie dla użytkownika
 app.get('/api/users/:id/visible-clinics', async (req, res) => {
   const userId = req.params.id;
   try {
     const connection = await getConnection();
-    const [clinics] = await connection.execute(`
+    const [clinics] = await connection.execute(
+      `
       SELECT c.id, c.name
       FROM user_visible_clinics uvc
       JOIN clinics c ON uvc.clinic_id = c.id
       WHERE uvc.user_id = ?
-    `, [userId]);
+      `,
+      [userId]
+    );
     connection.end();
     res.status(200).json(clinics);
   } catch (error) {
@@ -421,37 +416,40 @@ app.post('/api/users/:id/visible-clinics', async (req, res) => {
   }
 });
 
-
-
+//Lekarze
 app.get('/api/doctors', async (req, res) => {
   const { clinicId, lastName } = req.query;
 
-  // Podstawowe query zwracające userów z doctor_clinics
-  let query = `
-    SELECT u.id, u.firstName, u.lastName
+  // Zmieniony query: LEFT JOIN + check group "doctor" OR existing doctor_clinics
+  let baseQuery = `
+    SELECT DISTINCT u.id, u.firstName, u.lastName
     FROM users u
-    JOIN doctor_clinics dc ON u.id = dc.doctor_id
-    WHERE 1=1
+    LEFT JOIN doctor_clinics dc ON u.id = dc.doctor_id
+    LEFT JOIN user_permission_groups upg ON upg.user_id = u.id
+    LEFT JOIN permission_groups pg ON pg.id = upg.group_id
+    WHERE (pg.name = 'doctor' OR dc.doctor_id IS NOT NULL)
   `;
   const params = [];
 
+  // Opcjonalny filtr clinicId
   if (clinicId) {
-    query += ' AND dc.clinic_id = ?';
+    baseQuery += ' AND dc.clinic_id = ?';
     params.push(clinicId);
   }
+  // Opcjonalny filtr nazwiska
   if (lastName) {
-    query += ' AND u.lastName LIKE ?';
+    baseQuery += ' AND u.lastName LIKE ?';
     params.push(`%${lastName}%`);
   }
 
   try {
     const connection = await getConnection();
-    const [doctors] = await connection.execute(query, params);
+    const [rows] = await connection.execute(baseQuery, params);
     connection.end();
-    res.status(200).json(doctors);
+    return res.status(200).json(rows);
   } catch (error) {
     logger.error('Błąd pobierania lekarzy:', error);
-    res.status(500).json({ message: 'Błąd serwera' });
+    return res.status(500).json({ message: 'Błąd serwera' });
   }
 });
 
@@ -459,12 +457,15 @@ app.get('/api/doctors/:id', async (req, res) => {
   const id = req.params.id;
   try {
     const connection = await getConnection();
-    const [rows] = await connection.execute(`
+    const [rows] = await connection.execute(
+      `
       SELECT u.id, u.firstName, u.lastName
       FROM users u
       JOIN doctor_clinics dc ON u.id = dc.doctor_id
       WHERE u.id = ?
-    `, [id]);
+    `,
+      [id]
+    );
     connection.end();
     if (rows.length > 0) {
       res.status(200).json(rows[0]);
@@ -477,7 +478,7 @@ app.get('/api/doctors/:id', async (req, res) => {
   }
 });
 
-
+//Terminarz
 // Pobieranie liczby dzisiejszych wizyt
 app.get('/api/schedules/today', async (req, res) => {
   const { doctorId } = req.query;
@@ -582,7 +583,7 @@ app.get('/api/schedules', async (req, res) => {
     const [rows] = await connection.execute(query, params);
     connection.end();
 
-    const events = rows.map(sch => ({
+    const events = rows.map((sch) => ({
       id: sch.id,
       title: `${sch.patientFirstName} ${sch.patientLastName} (PESEL: ${sch.patientPesel})`,
       start: sch.start_time,
@@ -594,8 +595,8 @@ app.get('/api/schedules', async (req, res) => {
         clinicName: sch.clinicName,
         patientFirstName: sch.patientFirstName,
         patientLastName: sch.patientLastName,
-        patientPesel: sch.patientPesel
-      }
+        patientPesel: sch.patientPesel,
+      },
     }));
 
     res.status(200).json(events);
@@ -654,7 +655,7 @@ app.put('/api/schedules/:id', async (req, res) => {
   }
 });
 
-
+//Pacjenci
 app.post('/api/patients', async (req, res) => {
   const {
     firstName,
@@ -664,7 +665,7 @@ app.post('/api/patients', async (req, res) => {
     nationality_id,
     phone,
     addressResidence,
-    addressRegistration
+    addressRegistration,
   } = req.body;
 
   if (!firstName || !lastName || !pesel || !gender_id || !nationality_id || !addressResidence || !addressRegistration) {
@@ -698,14 +699,12 @@ app.post('/api/patients', async (req, res) => {
       `INSERT INTO patients (firstName, lastName, pesel, gender_id, nationality_id, phone,
         addressResidence_id, addressRegistration_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [firstName, lastName, pesel, gender_id, nationality_id, phone || null,
-       addressResidence_id, addressRegistration_id]
+      [firstName, lastName, pesel, gender_id, nationality_id, phone || null, addressResidence_id, addressRegistration_id]
     );
 
     connection.end();
     logger.info(`Dodano nowego pacjenta ${firstName} ${lastName}, pesel: ${pesel}.`);
     res.status(201).json({ message: 'Dodano pacjenta', id: resultPatient.insertId });
-
   } catch (error) {
     logger.error('Błąd dodawania pacjenta:', error);
     res.status(500).json({ message: 'Błąd serwera' });
@@ -763,7 +762,7 @@ app.get('/api/countries', async (req, res) => {
   }
 });
 
-
+//Poradnie
 app.get('/api/clinics', async (req, res) => {
   try {
     const connection = await getConnection();
@@ -838,12 +837,15 @@ app.get('/api/clinics/:id/doctors', async (req, res) => {
   const id = req.params.id;
   try {
     const connection = await getConnection();
-    const [doctors] = await connection.execute(`
-      SELECT u.id, u.firstName, u.lastName 
+    const [doctors] = await connection.execute(
+      `
+      SELECT u.id, u.firstName, u.lastName
       FROM doctor_clinics dc
       JOIN users u ON dc.doctor_id = u.id
       WHERE dc.clinic_id = ?
-    `, [id]);
+    `,
+      [id]
+    );
     connection.end();
     res.status(200).json(doctors);
   } catch (error) {
@@ -876,8 +878,7 @@ app.post('/api/clinics/:id/doctors', async (req, res) => {
   }
 });
 
-
-//System konfig 
+//Konfiguracja logów
 // Odczyt konfiguracji systemu
 app.get('/api/system-config', async (req, res) => {
   try {
@@ -948,8 +949,7 @@ app.get('/api/system-logs', async (req, res) => {
   }
 });
 
-
-//STRONY STATYCZNE
+//Strony statyczne 
 app.get('/edit_patient.html', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/edit_patient.html'));
 });
@@ -963,6 +963,7 @@ app.get('/add_user.html', (req, res) => {
 app.get('/schedule.html', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/schedule.html'));
 });
+
 
 
 app.get('/api/permissions', async (req, res) => {
@@ -1091,10 +1092,7 @@ app.get('/api/permission-groups/:id', async (req, res) => {
   const { id } = req.params;
   try {
     const connection = await getConnection();
-    const [groups] = await connection.execute(
-      'SELECT * FROM permission_groups WHERE id = ?',
-      [id]
-    );
+    const [groups] = await connection.execute('SELECT * FROM permission_groups WHERE id = ?', [id]);
     if (groups.length === 0) {
       connection.end();
       return res.status(404).json({ message: 'Nie znaleziono grupy' });
@@ -1102,7 +1100,7 @@ app.get('/api/permission-groups/:id', async (req, res) => {
 
     // pobierz listę uprawnień przypisanych do tej grupy
     const [perms] = await connection.execute(
-      `SELECT p.* 
+      `SELECT p.*
        FROM permission_group_permissions pgp
        JOIN permissions p ON pgp.permission_id = p.id
        WHERE pgp.group_id = ?`,
@@ -1210,7 +1208,7 @@ app.get('/api/users/:id/all-permissions', async (req, res) => {
 
     // Pojedyncze uprawnienia usera
     const [userPerms] = await connection.execute(
-      `SELECT p.* 
+      `SELECT p.*
        FROM user_permissions up
        JOIN permissions p ON up.permission_id = p.id
        WHERE up.user_id = ?`,
@@ -1219,7 +1217,7 @@ app.get('/api/users/:id/all-permissions', async (req, res) => {
 
     // Grupy uprawnień usera
     const [userGroups] = await connection.execute(
-      `SELECT g.* 
+      `SELECT g.*
        FROM user_permission_groups ug
        JOIN permission_groups g ON ug.group_id = g.id
        WHERE ug.user_id = ?`,
@@ -1229,7 +1227,7 @@ app.get('/api/users/:id/all-permissions', async (req, res) => {
     connection.end();
     res.status(200).json({
       permissions: userPerms,
-      groups: userGroups
+      groups: userGroups,
     });
   } catch (error) {
     logger.error('Błąd pobierania uprawnień użytkownika:', error);
@@ -1286,8 +1284,9 @@ app.post('/api/users/:id/all-permissions', async (req, res) => {
   }
 });
 
-
-//Uruchomienie serwera
+//Uruchomienie serwera 
 app.listen(PORT, () => {
   console.log(`Serwer działa na http://localhost:${PORT}`);
 });
+
+module.exports = app;
