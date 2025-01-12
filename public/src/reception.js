@@ -49,9 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Aktualnie używany parametr wyszukiwania (by odświeżać listę po dodaniu/edycji)
   let currentSearchQuery = '';
 
-  //-----------------------------------------------------
   // 1. Obsługa modala (Dodaj/Edycja Pacjenta)
-  //-----------------------------------------------------
   if (addPatientButton) {
     addPatientButton.addEventListener('click', () => {
       openPatientModal(); // otwarcie w trybie dodawania
@@ -126,30 +124,9 @@ document.addEventListener('DOMContentLoaded', () => {
       closePatientModal();
     }
   });
-
-  // Czyszczenie pól adresu zamieszkania
-  function clearResidenceFields() {
-    document.getElementById('residence-country').value = '';
-    document.getElementById('residence-city').value = '';
-    document.getElementById('residence-postal_code').value = '';
-    document.getElementById('residence-street').value = '';
-    document.getElementById('residence-house_number').value = '';
-    document.getElementById('residence-apartment_number').value = '';
   }
 
-  // Czyszczenie pól adresu zameldowania
-  function clearRegistrationFields() {
-    document.getElementById('registration-country').value = '';
-    document.getElementById('registration-city').value = '';
-    document.getElementById('registration-postal_code').value = '';
-    document.getElementById('registration-street').value = '';
-    document.getElementById('registration-house_number').value = '';
-    document.getElementById('registration-apartment_number').value = '';
-  }
-
-  //-----------------------------------------------------
   // 2. Obsługa zapisu (Dodanie/Edycja) pacjenta
-  //-----------------------------------------------------
   if (patientForm) {
     patientForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -202,7 +179,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let response;
         if (patientId) {
           // Edycja pacjenta
-          // (zakładamy, że Twój backend obsługuje PUT /api/patients/:id)
           response = await fetch(`/api/patients/${patientId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -235,9 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  //-----------------------------------------------------
   // 3. Obsługa listy pacjentów (render, usuń, itp.)
-  //-----------------------------------------------------
   async function loadPatients(query = '') {
     try {
       // Jeżeli query nie jest pusty, to np. "?search=Kowalski"
@@ -283,8 +257,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let tableRows = '';
 
     patients.forEach((p) => {
-      // Zwróć uwagę, że p.addressResidence i p.addressRegistration
-      // są już w obiekcie p (o ile nasz backend je zwraca).
       const patientJson = JSON.stringify(p);
 
       tableRows += `
@@ -337,9 +309,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  //-----------------------------------------------------
+
   // 4. Pobieranie list płci i narodowości (opcjonalne)
-  //-----------------------------------------------------
   async function loadGendersAndNationalities() {
     try {
       const [gendersResp, countriesResp] = await Promise.all([
@@ -373,9 +344,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  //-----------------------------------------------------
+
   // 5. Obsługa wyszukiwania
-  //-----------------------------------------------------
   if (searchPatientForm) {
     searchPatientForm.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -399,9 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  //-----------------------------------------------------
   // Na koniec, startowe ładowanie płci, narodowości + pacjentów
-  //-----------------------------------------------------
   loadGendersAndNationalities().then(() => {
     loadPatients();
   });
