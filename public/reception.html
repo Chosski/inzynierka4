@@ -5,7 +5,6 @@
   <title>Ewidencja Pacjentów</title>
   <link rel="stylesheet" href="styles.css">
 
-  <!-- Skrypt weryfikujący dostęp do grupy 'reception' LUB 'admin' -->
   <script>
     (function() {
       const userId = localStorage.getItem('userId');
@@ -24,7 +23,6 @@
         })
         .then(data => {
           const groups = data.groups || [];
-          // Sprawdzamy, czy user ma 'reception' LUB 'admin'
           const allowed = groups.some(g => g.name === 'reception' || g.name === 'admin');
           if (!allowed) {
             alert('Brak dostępu do Ewidencji Pacjentów.');
